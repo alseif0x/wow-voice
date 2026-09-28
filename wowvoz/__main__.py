@@ -92,7 +92,8 @@ def main() -> int:
     rec.set_buttons(keymap.named_buttons())
 
     if args.say is not None:
-        o = C.parse(args.say, rec.buttons) or rec.ask_jev(args.say, "jev")
+        b = C.button_by_sound(args.say, rec.buttons, float(cfg.get("nearMatch", 0.75)))
+        o = C.parse(args.say, rec.buttons) or (C.Order("button", button=b, text=args.say, via="sound") if b else None) or rec.ask_jev(args.say, "jev")
         print(describe(o) + f"  (via {o.via or 'parse'}, confidence {o.confidence:.2f})" if o else "no order")
         return 0
     if args.file:

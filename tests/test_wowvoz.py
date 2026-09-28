@@ -29,7 +29,7 @@ class Parse(unittest.TestCase):
             "corre": ("autorun", 1), "caminar automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
             "camina lento": ("walk", 1), "a correr": ("run", 1),
-            "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "asiste": ("assist", 1),
+            "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "focus aliado": ("focus_friend", 1), "asiste": ("assist", 1),
             "vale, salta": ("jump", 1),
         }
         for text, (kind, count) in cases.items():
@@ -66,6 +66,13 @@ class Parse(unittest.TestCase):
             self.assertTrue(C.close_enough(g, f), (g, f))
         for g, f in [("salta", "hola"), ("para", "otra vez"), ("adelante", "vamos a la moneda"), ("izquierda", "que te quiero decir algo"), ("para", "vale")]:
             self.assertFalse(C.close_enough(g, f), (g, f))
+
+    def test_buttons_by_sound(self):
+        buttons = BUTTONS + [{"slot": 3, "command": "ACTIONBUTTON3", "keys": ["3"], "kind": "spell", "name": "Eviscerar"}]
+        self.assertEqual(C.button_by_sound("es viscera", buttons)["name"], "Eviscerar")
+        self.assertEqual(C.button_by_sound("lanza es viscerar", buttons)["name"], "Eviscerar")
+        self.assertIsNone(C.button_by_sound("vamos a comer", buttons))
+        self.assertIsNone(C.button_by_sound("hola", buttons))
 
     def test_every_grammar_phrase_parses(self):
         for p in C.phrases(BUTTONS):

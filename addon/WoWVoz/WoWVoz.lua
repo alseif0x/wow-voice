@@ -56,6 +56,8 @@ end
 local VOICE = {
 	{ id = "WOWVOZ_FOCUS", macro = "/focus" },
 	{ id = "WOWVOZ_TARGETFOCUS", macro = "/target focus" },
+	-- The nearest friendly character as focus, then back to what was targeted.
+	{ id = "WOWVOZ_FOCUSFRIEND", macro = "/targetfriend\n/focus\n/targetlasttarget" },
 	{ id = "WOWVOZ_CLEARFOCUS", macro = "/clearfocus" },
 	{ id = "WOWVOZ_ASSISTFOCUS", macro = "/assist focus" },
 }

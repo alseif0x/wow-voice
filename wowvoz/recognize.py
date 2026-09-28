@@ -31,10 +31,22 @@ class Recognizer:
         self.buttons: list[dict] = []
         self._whisper = None
 
+    def known(self, phrase: str) -> bool:
+        """Every word in Vosk's vocabulary? (It drops unknown words from a grammar,
+        which would turn "lanza eviscerar" into a bare "lanza".)"""
+        find = getattr(self.model, "vosk_model_find_word", None)
+        if find is None:
+            return True
+        return all(find(w) >= 0 for w in phrase.split())
+
     def set_buttons(self, buttons: list[dict]) -> None:
         self.buttons = buttons
-        g = json.dumps(C.phrases(buttons) + ["[unk]"], ensure_ascii=False)
-        self.grammar = self.vosk.KaldiRecognizer(self.model, 16000, g)
+        all_phrases = C.phrases(buttons)
+        phrases = [p for p in all_phrases if self.known(p)]
+        unknown = sorted({C.spoken_name(b.get("name") or "") for b in buttons} - set(phrases) - {""})
+        if unknown:
+            self.log(f"not in Vosk's vocabulary (left to sound matching and JEV): {', '.join(unknown)}")
+        self.grammar = self.vosk.KaldiRecognizer(self.model, 16000, json.dumps(phrases + ["[unk]"], ensure_ascii=False))
 
     def _vosk(self, rec, pcm: bytes, out: dict, key: str) -> None:
         rec.AcceptWaveform(pcm)
@@ -98,6 +110,10 @@ class Recognizer:
             if o:
                 o.via = "vosk"
                 return o, heard
+            # A button whose name Vosk can't spell: "es viscera" for "Eviscerar".
+            b = C.button_by_sound(f, self.buttons, float(self.cfg.get("nearMatch", 0.75)))
+            if b:
+                return C.Order("button", button=b, text=f, via="vosk~"), heard
             o, sure = self.jev_decision(f, "vosk+jev")
             if o or sure:
                 return o, heard  # an order, or surely none: Whisper wouldn't change that

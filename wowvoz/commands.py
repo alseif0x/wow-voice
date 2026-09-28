@@ -68,6 +68,7 @@ INTENTS = {
     "target_friend": ("TARGETNEARESTFRIEND", "tap", ["objetivo amigo", "aliado"], "Target the nearest friendly character."),
     "focus":        ("WOWVOZ_FOCUS", "tap", ["foco", "pon el foco", "marca el foco", "enfoca", "focus", "ponle foco"], "Set the current target as focus (\"pon el foco\", \"focus\")."),
     "target_focus": ("WOWVOZ_TARGETFOCUS", "tap", ["objetivo foco", "selecciona el foco", "apunta al foco", "vuelve al foco", "coge el foco"], "Target the focus again (\"vuelve al foco\")."),
+    "focus_friend": ("WOWVOZ_FOCUSFRIEND", "tap", ["focus aliado", "foco aliado", "foco al aliado", "pon el foco en el aliado", "enfoca al aliado"], "Set the nearest friendly character as focus, keeping the current target (\"focus aliado\")."),
     "clear_focus":  ("WOWVOZ_CLEARFOCUS", "tap", ["quita el foco", "borra el foco", "sin foco", "limpia el foco"], "Clear the focus (\"quita el foco\")."),
     "assist_focus": ("WOWVOZ_ASSISTFOCUS", "tap", ["ayuda al foco", "asiste al foco", "objetivo del foco"], "Target what the focus is targeting (\"asiste al foco\")."),
     "assist":       ("ASSISTTARGET", "tap", ["asiste", "objetivo de mi objetivo"], "Assist: target what your target is targeting."),
@@ -135,6 +136,27 @@ def close_enough(grammar: str, free: str, min_ratio: float = 0.75) -> bool:
     if not g or not f or abs(len(g.split()) - len(f.split())) > 1:
         return False
     return SequenceMatcher(None, g, f).ratio() >= min_ratio
+
+
+def button_by_sound(text: str, buttons: list[dict], min_ratio: float = 0.75) -> dict | None:
+    """The button whose name sounds most like what was said (with or without
+    "lanza/usa..."), when it is close enough and clearly the best."""
+    from difflib import SequenceMatcher
+    t = norm(text)
+    for v in CAST_VERBS:
+        if t.startswith(v + " "):
+            t = t[len(v) + 1:]
+            break
+    tc = t.replace(" ", "")
+    scored = []
+    for b in buttons:
+        n = spoken_name(b.get("name") or "")
+        if n:
+            scored.append((SequenceMatcher(None, tc, n.replace(" ", "")).ratio(), b))
+    scored.sort(key=lambda x: -x[0])
+    if scored and scored[0][0] >= min_ratio and (len(scored) == 1 or scored[0][0] - scored[1][0] >= 0.15):
+        return scored[0][1]
+    return None
 
 
 def _number_in(words: list[str]) -> int | None:
