@@ -35,6 +35,9 @@ DEFAULTS = {
     "jumpInterval": 0.9,
     "maxCount": 5,
     "startPaused": False,
+    # Short beeps on the PC's speakers: voice orders on / off, and "paused" when an order is ignored.
+    "beeps": True,
+    "playCommand": ["pw-play"],
     "log": "~/.cache/wow-voz/wow-voz.log",
 }
 

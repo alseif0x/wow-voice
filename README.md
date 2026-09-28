@@ -40,9 +40,11 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 | siguiente objetivo · objetivo amigo | Tab / objetivo aliado |
 | interactúa · siéntate · mapa · bolsas | Sus atajos |
 | lanza/usa/tira *nombre* · *nombre* · botón *tres* | La tecla del botón donde está ese hechizo, objeto o macro |
-| voz pausa · voz activa | Deja de obedecer / vuelve a obedecer |
+| voz pausa · voz activa (activa la voz, empieza) | Deja de obedecer / vuelve a obedecer |
 
 Cualquier otra forma de decirlo pasa por JEV.
+
+**Pitidos** (por los altavoces del PC): uno ascendente al arrancar o al decir "voz activa", uno descendente al pausar, y dos pitidos graves si das una orden estando en pausa.
 
 **Seguros:**
 - Nada se pulsa si WoW no es la ventana activa.
@@ -59,7 +61,7 @@ $P -m wowvoz --keys            # qué tecla hace cada cosa (atajos del addon o p
 $P -m wowvoz --say "dale un salto"   # qué haría una frase, sin micrófono ni teclas
 $P -m wowvoz --dry-run         # escucha y dice qué pulsaría, sin pulsar
 $P -m wowvoz                   # a jugar
-systemctl --user start wow-voz # como servicio: empieza en pausa, di "voz activa"
+systemctl --user start wow-voz # como servicio (arranca activo; "voz pausa" / "voz activa")
 journalctl --user -u wow-voz -f   # lo que oye y hace
 ```
 

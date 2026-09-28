@@ -52,17 +52,24 @@ class Recognizer:
         return " ".join(s.text.strip() for s in segs).strip()
 
     def ask_jev(self, text: str, via: str) -> C.Order | None:
+        return self.jev_decision(text, via)[0]
+
+    def jev_decision(self, text: str, via: str) -> tuple[C.Order | None, bool]:
+        """(order or None, sure): sure is True when JEV answered confidently,
+        order or "none" alike, so there is no point asking Whisper."""
         body, opts = C.jev_request(text, self.buttons)
         ans, err, ms = jev.decide(body, self.cfg["jevKeyFile"], float(self.cfg.get("jevTimeout", 2.5)))
         if ans is None:
             self.log(f"  jev: {err} ({ms} ms)")
-            return None
+            return None, False
         a = ans.get("answers", {}).get("order", {})
-        self.log(f"  jev: {a.get('choice')} {float(a.get('confidence') or 0):.2f} ({ms} ms)")
-        o = C.order_from_jev(ans, opts, text, float(self.cfg.get("jevMinConfidence", 0.8)))
+        conf = float(a.get("confidence") or 0)
+        min_conf = float(self.cfg.get("jevMinConfidence", 0.8))
+        self.log(f"  jev: {a.get('choice')} {conf:.2f} ({ms} ms)")
+        o = C.order_from_jev(ans, opts, text, min_conf)
         if o:
             o.via = via
-        return o
+        return o, conf >= min_conf
 
     def order_for(self, pcm: bytes) -> tuple[C.Order | None, dict]:
         """The order in this phrase, if any, and what each stage heard (for the log)."""
@@ -85,9 +92,9 @@ class Recognizer:
             if o:
                 o.via = "vosk"
                 return o, heard
-            o = self.ask_jev(f, "vosk+jev")
-            if o:
-                return o, heard
+            o, sure = self.jev_decision(f, "vosk+jev")
+            if o or sure:
+                return o, heard  # an order, or surely none: Whisper wouldn't change that
         # Whisper only for a real phrase Vosk heard something in, not for room noise.
         if f and self.cfg.get("whisperFallback", True) and len(pcm) > 16000 * 2 * 0.4:
             w = self.whisper_text(pcm)

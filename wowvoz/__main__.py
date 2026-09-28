@@ -24,6 +24,7 @@ from . import config
 from .actions import Actions
 from .game import Focus, load_keymap
 from .keyboard import DryKeyboard, Keyboard, XKeymap
+from .beeps import Beeps
 from .listen import FRAME_BYTES, Phrases, microphone, other_listener_active
 
 
@@ -118,11 +119,33 @@ def main() -> int:
     acts = Actions(kb, keymap, xk, focus, cfg, log)
     log(f"wow-voz listening{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
+    beeps = Beeps(cfg)
+    beeps.play("off" if acts.paused else "on")
     phrases = Phrases(float(cfg["threshold"]), int(cfg["silenceMs"]), int(cfg["maxPhraseMs"]))
     sv_mtime = 0.0
     last_check = 0.0
+    # The microphone is read on its own thread, so no audio is lost while a phrase is worked out.
+    import queue
+    import threading
+    frames: queue.Queue = queue.Queue(maxsize=2000)
+
+    def reader():
+        for fr in microphone(cfg["recordCommand"]):
+            try:
+                frames.put_nowait(fr)
+            except queue.Full:
+                pass
+        frames.put(None)
+    threading.Thread(target=reader, daemon=True).start()
+
+    def frame_stream():
+        while True:
+            fr = frames.get()
+            if fr is None:
+                return
+            yield fr
     try:
-        for frame in microphone(cfg["recordCommand"]):
+        for frame in frame_stream():
             now = time.monotonic()
             if now - last_check > 10:  # the addon's data changes on /reload and logout
                 last_check = now
@@ -150,6 +173,12 @@ def main() -> int:
                 continue
             result = acts.submit(o)
             log(f"\"{said}\" -> {describe(o)} via {o.via} ({ms} ms): {result}")
+            if o.kind == "resume":
+                beeps.play("on")
+            elif o.kind == "pause":
+                beeps.play("off")
+            elif result.startswith("ignored: paused"):
+                beeps.play("paused", every=4)
     except KeyboardInterrupt:
         pass
     finally:

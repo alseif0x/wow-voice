@@ -4,7 +4,7 @@ After=pipewire.service graphical-session.target
 
 [Service]
 WorkingDirectory=%h/projects/programs/wow-voz
-ExecStart=%h/.local/share/wow-ai-voice/bin/python -m wowvoz --paused
+ExecStart=%h/.local/share/wow-ai-voice/bin/python -m wowvoz
 Restart=on-failure
 RestartSec=3
 

@@ -53,8 +53,8 @@ INTENTS = {
     "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
     "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
     "bags":         ("TOGGLEBACKPACK", "tap", ["bolsas", "abre las bolsas", "mochila"], "Open or close the bags."),
-    "pause":        (None, "pause", ["voz pausa", "pausa voz", "deja de escuchar"], "Stop listening to voice orders for now."),
-    "resume":       (None, "resume", ["voz activa", "activa voz", "escúchame"], "Start listening to voice orders again."),
+    "pause":        (None, "pause", ["voz pausa", "pausa voz", "pausa la voz", "deja de escuchar"], "Stop listening to voice orders for now."),
+    "resume":       (None, "resume", ["voz activa", "activa voz", "activa la voz", "escúchame", "empieza"], "Start listening to voice orders again."),
 }
 CAST_VERBS = ["lanza", "usa", "tira", "activa"]
 
