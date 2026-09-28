@@ -61,31 +61,67 @@ local VOICE = {
 	{ id = "WOWVOZ_CLEARFOCUS", macro = "/clearfocus" },
 	{ id = "WOWVOZ_ASSISTFOCUS", macro = "/assist focus" },
 }
+-- Game actions wow-voz may press that have no keyboard key (unbound, or only on
+-- the mouse or the gamepad): they get a free key the same way, as a session
+-- override on the action itself. WOWAI_TALK is WoW AI's "Talk" ("oye IA ...").
+local NEEDS_KEY = {
+	"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT", "JUMP",
+	"TOGGLEAUTORUN", "TOGGLERUN", "SITORSTAND", "TARGETNEARESTENEMY", "TARGETNEARESTFRIEND",
+	"INTERACTTARGET", "ASSISTTARGET", "FOLLOWTARGET", "TOGGLEWORLDMAP", "TOGGLEBACKPACK", "WOWAI_TALK",
+}
 local CANDIDATES = {}
 for _, mods in ipairs({ "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-" }) do
 	for n = 9, 12 do table.insert(CANDIDATES, mods .. "F" .. n) end
 end
+for _, mods in ipairs({ "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-" }) do
+	for n = 1, 8 do table.insert(CANDIDATES, mods .. "F" .. n) end
+end
+
+local function KeyboardKey(k)
+	return k and not k:find("BUTTON") and not k:find("^PAD") and not k:find("PAD%d") and not k:find("MOUSEWHEEL")
+end
 local voiceOwner = CreateFrame("Frame", "WoWVozKeys", UIParent)
 local voiceKeys = {}
 
+local settingUp = false -- our own overrides fire UPDATE_BINDINGS too; don't answer those
+
 local function SetupVoiceKeys()
 	if InCombatLockdown() then return false end
+	settingUp = true
+	C_Timer.After(1, function() settingUp = false end)
 	ClearOverrideBindings(voiceOwner)
 	wipe(voiceKeys)
 	local taken = {}
+	local function FreeKey()
+		for _, key in ipairs(CANDIDATES) do
+			local action = Try(GetBindingAction, key)
+			if not taken[key] and (action == nil or action == "") then
+				taken[key] = true
+				return key
+			end
+		end
+	end
+	for _, cmd in ipairs(NEEDS_KEY) do
+		local has = false
+		for _, k in ipairs(Keys(cmd)) do if KeyboardKey(k) then has = true end end
+		-- WOWAI_TALK only exists when WoW AI is loaded.
+		if not has and (cmd ~= "WOWAI_TALK" or (WoWAI and WoWAI.Voice)) then
+			local key = FreeKey()
+			if key then
+				SetOverrideBinding(voiceOwner, true, key, cmd)
+				voiceKeys[cmd] = key
+			end
+		end
+	end
 	for _, v in ipairs(VOICE) do
 		local b = _G[v.id] or CreateFrame("Button", v.id, UIParent, "SecureActionButtonTemplate")
 		b:SetAttribute("type", "macro")
 		b:SetAttribute("macrotext", v.macro)
 		b:RegisterForClicks("AnyDown", "AnyUp")
-		for _, key in ipairs(CANDIDATES) do
-			local action = Try(GetBindingAction, key)
-			if not taken[key] and (action == nil or action == "") then
-				SetOverrideBindingClick(voiceOwner, true, key, v.id, "LeftButton")
-				taken[key] = true
-				voiceKeys[v.id] = key
-				break
-			end
+		local key = FreeKey()
+		if key then
+			SetOverrideBindingClick(voiceOwner, true, key, v.id, "LeftButton")
+			voiceKeys[v.id] = key
 		end
 	end
 	return true
@@ -98,7 +134,10 @@ local function Snapshot()
 		local keys = Keys(c)
 		if #keys > 0 then d.bindings[c] = keys end
 	end
-	for id, key in pairs(voiceKeys) do d.bindings[id] = { key } end
+	for id, key in pairs(voiceKeys) do
+		d.bindings[id] = d.bindings[id] or {}
+		table.insert(d.bindings[id], key)
+	end
 	for _, bar in ipairs(BARS) do
 		for i = 1, 12 do
 			local slot = bar.first + i - 1
@@ -143,7 +182,7 @@ local keysReady = false
 f:SetScript("OnEvent", function(_, event)
 	if not keysReady and (event == "PLAYER_LOGIN" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD") then
 		keysReady = SetupVoiceKeys()
-	elseif event == "UPDATE_BINDINGS" and not InCombatLockdown() then
+	elseif event == "UPDATE_BINDINGS" and not InCombatLockdown() and not settingUp then
 		SetupVoiceKeys() -- the player changed bindings: pick free keys again
 	end
 	Soon()
@@ -183,6 +222,19 @@ function WoWVoz_Toggle(state)
 	WoWVozDB.enabled = state and true or false
 	Paint()
 	print("|cff66ccff[WoW Voz]|r " .. (state and "órdenes de voz ACTIVADAS" or "órdenes de voz DESACTIVADAS"))
+end
+
+-- Forever has no focus frame: show the focus's name under the button, and say
+-- it in the chat when it changes, so "pon el foco" can be seen to work.
+local focusText
+local function ShowFocus(announce)
+	local name = UnitExists and UnitExists("focus") and UnitName("focus") or nil
+	if focusText then
+		focusText:SetText(name and ("Foco: " .. name) or "")
+	end
+	if announce then
+		print("|cff66ccff[WoW Voz]|r " .. (name and ("foco: " .. name) or "sin foco"))
+	end
 end
 
 local function Build()
@@ -231,12 +283,17 @@ local function Build()
 	end)
 	button:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	if WoWVozDB and WoWVozDB.hideButton then button:Hide() end
+	focusText = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	focusText:SetPoint("TOP", button, "BOTTOM", 0, -2)
 	Paint()
+	ShowFocus(false)
 end
 
 local ui = CreateFrame("Frame")
 ui:RegisterEvent("PLAYER_LOGIN")
-ui:SetScript("OnEvent", function()
+pcall(ui.RegisterEvent, ui, "PLAYER_FOCUS_CHANGED")
+ui:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_FOCUS_CHANGED" then ShowFocus(true) return end
 	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
 	Build()
 end)

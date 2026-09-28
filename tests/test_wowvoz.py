@@ -118,7 +118,7 @@ def run_orders(orders, focus=True, cfg=None, keymap=None):
     acts = Actions(kb, km, None, FakeFocus(focus), cfg or {"jumpInterval": 0.01, "holdSeconds": 0.01}, log=lambda *_: None)
     for o in orders:
         acts.submit(o)
-    time.sleep(0.3)
+    time.sleep(0.7)
     return kb.events, acts
 
 
@@ -251,3 +251,77 @@ class Phrasing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Combined(unittest.TestCase):
+    def test_split(self):
+        self.assertEqual(C.split_orders("Salta y gira a la derecha, luego adelante"), ["salta", "gira a la derecha", "adelante"])
+        self.assertEqual(C.split_orders("salta dos veces"), ["salta dos veces"])
+
+    def test_combo_runs_every_part_in_order(self):
+        ev, _ = run_orders([C.Order("combo", extra={"orders": [C.Order("jump"), C.Order("turn_right", degrees=45), C.Order("forward")]})],
+                           cfg={"turnDegreesPerSecond": 10000, "holdSeconds": 0.01})
+        self.assertEqual([e[0] for e in ev], ["press", "hold", "hold"])
+
+
+class AliasesAndLearning(unittest.TestCase):
+    def test_aliases_resolve_and_are_checked(self):
+        from wowvoz.aliases import Aliases
+        with tempfile.TemporaryDirectory() as tmp:
+            user, learned = os.path.join(tmp, "a.json"), os.path.join(tmp, "l.json")
+            with open(user, "w") as f:
+                f.write('{"Evis": "button:Bola de Fuego", "un pelín derecha": {"order": "turn_right", "degrees": 10}, "raro": "run_lua"}')
+            with open(learned, "w") as f:
+                f.write('{"quieres pierda": "turn_left", "evis": "jump"}')
+            a = Aliases(user, learned)
+            self.assertTrue(a.refresh())
+            self.assertEqual(a.order_for("evis", BUTTONS).button["id"], 133, "yours win over learned")
+            self.assertEqual(a.order_for("Quieres pierda", BUTTONS).kind, "turn_left")
+            self.assertEqual(a.order_for("un pelín derecha", BUTTONS).degrees, 10)
+            self.assertIsNone(a.order_for("raro", BUTTONS), "not an order")
+            self.assertFalse(a.refresh(), "unchanged files are not reread")
+
+    def test_ask_ai(self):
+        from wowvoz.recognize import ask_ai_question
+        self.assertEqual(ask_ai_question("oye ia qué misión hago"), "que mision hago")
+        self.assertEqual(ask_ai_question("pregúntale a la ia cuánto oro tengo"), "cuanto oro tengo")
+        self.assertIsNone(ask_ai_question("ya"))
+        self.assertIsNone(ask_ai_question("y a la derecha"), "no wake word, too short")
+        self.assertIsNone(ask_ai_question("salta"))
+
+    def test_jev_gets_the_closest_phrase_as_a_hint(self):
+        body, _ = C.jev_request("gira de echa", BUTTONS, hint="gira a la derecha")
+        self.assertEqual(body["state"]["closest_order_phrase"], "gira a la derecha")
+        self.assertIn("only a hint", body["questions"]["order"]["instructions"])
+        self.assertNotIn("closest_order_phrase", C.jev_request("x", BUTTONS)[0]["state"])
+
+    def test_learning_needs_evidence(self):
+        from wowvoz import learn as Lr
+        lines = [
+            {"type": "miss", "free": "quieres pierda", "grammar": "izquierda", "jev": {"choice": "turn_left", "confidence": 0.5}},
+            {"type": "follow", "miss": "quieres pierda", "order": "turn_left", "said": "izquierda"},
+            {"type": "miss", "free": "hola", "grammar": "salta", "jev": {"choice": "none", "confidence": 0.99}},
+            {"type": "follow", "miss": "hola", "order": "jump", "said": "salta"},
+            {"type": "follow", "miss": "hola", "order": "jump", "said": "salta"},
+            {"type": "miss", "free": "otra vez", "grammar": "atras", "jev": {"choice": "back", "confidence": 0.5}},
+        ]
+        ev = Lr.evidence(lines)
+        taken = Lr.existing_phrases(BUTTONS)
+        self.assertEqual(Lr.acceptable("quieres pierda", "turn_left", ev, BUTTONS, taken), "", "followed by it and JEV agreed")
+        self.assertIn("common word", Lr.acceptable("hola", "jump", ev, BUTTONS, taken))
+        self.assertIn("not enough evidence", Lr.acceptable("otra vez", "back", ev, BUTTONS, taken))
+        self.assertIn("already means", Lr.acceptable("salta", "back", ev, BUTTONS, taken))
+        self.assertIn("not an order", Lr.acceptable("quieres pierda", "run_lua", ev, BUTTONS, taken))
+
+    def test_miss_log_pairs_a_miss_with_the_order_right_after(self):
+        from wowvoz.learn import MissLog
+        with tempfile.TemporaryDirectory() as tmp:
+            log = MissLog(os.path.join(tmp, "m.jsonl"))
+            log.miss({"free": "quieres pierda", "grammar": "izquierda"})
+            log.success(C.Order("turn_left", text="izquierda"))
+            log.success(C.Order("jump", text="salta"))  # no miss before it: nothing
+            import json
+            with open(os.path.join(tmp, "m.jsonl")) as f:
+                recs = [json.loads(line) for line in f]
+            self.assertEqual([r["type"] for r in recs], ["miss", "follow"])
+            self.assertEqual(recs[1]["order"], "turn_left")

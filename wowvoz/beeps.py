@@ -16,6 +16,8 @@ TONES = {
     "on": [(660, 0.09), (990, 0.12)],
     "off": [(990, 0.09), (660, 0.12)],
     "paused": [(440, 0.07), (0, 0.05), (440, 0.07)],
+    "ok": [(1320, 0.035)],              # a tick: order understood and pressed
+    "error": [(220, 0.12), (180, 0.12)],  # no key for it, or WoW isn't the active window
 }
 
 

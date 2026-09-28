@@ -79,6 +79,7 @@ INTENTS = {
     "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
     "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
     "bags":         ("TOGGLEBACKPACK", "tap", ["bolsas", "abre las bolsas", "mochila"], "Open or close the bags."),
+    "ask_ai":       ("WOWAI_TALK", "ask_ai", [], "A question or request for the AI assistant (WoW AI), usually starting with \"oye IA\" (\"oye IA, ¿qué misión hago?\")."),
     "pause":        (None, "pause", ["voz pausa", "pausa voz", "pausa la voz", "deja de escuchar"], "Stop listening to voice orders for now."),
     "resume":       (None, "resume", ["voz activa", "activa voz", "activa la voz", "escúchame", "empieza"], "Start listening to voice orders again."),
 }
@@ -128,6 +129,15 @@ def phrases(buttons: list[dict]) -> list[str]:
             seen.add(p)
             uniq.append(p)
     return uniq
+
+
+SPLIT = re.compile(r"\s*(?:,|\by luego\b|\by despues\b|\bluego\b|\bdespues\b|\by\b)\s*")
+
+
+def split_orders(text: str) -> list[str]:
+    """"salta y gira a la derecha, luego adelante" -> ["salta", "gira a la derecha", "adelante"]."""
+    t = norm(text.replace(",", " , "))
+    return [p for p in (x.strip() for x in SPLIT.split(t)) if p]
 
 
 def close_enough(grammar: str, free: str, min_ratio: float = 0.75) -> bool:
@@ -237,10 +247,18 @@ def jev_options(buttons: list[dict], limit: int = 30) -> dict[str, tuple[str, di
     return opts
 
 
-def jev_request(utterance: str, buttons: list[dict], model: str = "typesafe/jev-1.13") -> tuple[dict, dict]:
+HINT_NOTE = (" `closest_order_phrase` is the order phrase the sound was closest to: only a hint about mishearing "
+             "(\"gira de echa\" was \"gira a la derecha\"). Ordinary speech always has some closest phrase too, so pick "
+             "none when `utterance` is clearly not an order.")
+
+
+def jev_request(utterance: str, buttons: list[dict], model: str = "typesafe/jev-1.13", hint: str = "") -> tuple[dict, dict]:
     opts = jev_options(buttons)
-    q = {"type": "choice", "instructions": JEV_INSTRUCTIONS, "criteria": {k: v[0] for k, v in opts.items()}}
-    return {"model": model, "state": {"utterance": utterance[:300]}, "questions": {"order": q}}, opts
+    q = {"type": "choice", "instructions": JEV_INSTRUCTIONS + (HINT_NOTE if hint else ""), "criteria": {k: v[0] for k, v in opts.items()}}
+    state = {"utterance": utterance[:300]}
+    if hint:
+        state["closest_order_phrase"] = hint[:120]
+    return {"model": model, "state": state, "questions": {"order": q}}, opts
 
 
 def order_from_jev(answer: dict, opts: dict, utterance: str, min_conf: float) -> Order | None:

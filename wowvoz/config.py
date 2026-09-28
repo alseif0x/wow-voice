@@ -12,7 +12,7 @@ DEFAULTS = {
     # Recognition
     "voskModel": f"{VENV}/vosk/vosk-model-small-es-0.42",
     "whisperModel": "small",
-    "whisperFallback": True,
+    "whisperFallback": False,  # Vosk + JEV only (Whisper was 2-4 s on the CPU)
     "device": "cpu",
     # JEV (the same OpenRouter key file the RusticOS pilots and WoW AI use)
     "jevKeyFile": "~/.config/rustic-os/openrouter.env",
@@ -39,6 +39,12 @@ DEFAULTS = {
     "startPaused": False,
     # Short beeps on the PC's speakers: voice orders on / off, and "paused" when an order is ignored.
     "beeps": True,
+    "beepOnOrder": True,  # a tick when an order is pressed, a low buzz when it can't be
+    # "oye IA ...": the phrase audio is left here for WoW AI's bridge, then its Talk key is pressed.
+    "wowAiHandoff": "~/.cache/wow-ai/voice-in.wav",
+    # wow-voz-learn: the agent that reviews misses (text in, JSON out; no tools needed).
+    "learnCommand": ["claude", "-p", "--model", "opus", "--effort", "low"],  # or e.g. ["ocx", "claude", "-p", "--model", "gpt-6-sol"]
+    "learnTimeout": 240,
     # Follow the WoW Voz addon's on/off button (a marker in the game's top-right corner).
     "gameSwitch": True,
     "playCommand": ["pw-play"],

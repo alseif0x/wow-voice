@@ -1,0 +1,8 @@
+[Unit]
+Description=wow-voz-learn: revisa los fallos de voz y aprende alias claros
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/programs/wow-voz
+ExecStart=%h/.local/share/wow-ai-voice/bin/python -m wowvoz.learn
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin

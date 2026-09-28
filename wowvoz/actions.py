@@ -8,9 +8,12 @@ key), and holds are capped, so a misheard order can't run away.
 
 from __future__ import annotations
 
+import json
+import os
 import queue
 import threading
 import time
+import wave
 
 from .commands import INTENTS, Order
 from .keyboard import Unsupported, resolve
@@ -29,6 +32,7 @@ class Actions:
         self.autorun = False
         self.walking = False  # WoW starts every session running
         self.paused = bool(cfg.get("startPaused", False))
+        self.notify = lambda what: None  # "ok" / "error": set by main for the beeps
         self.worker = threading.Thread(target=self._run, daemon=True)
         self.worker.start()
 
@@ -96,7 +100,31 @@ class Actions:
         if self.focus is None or self.focus.game_focused():
             return True
         self.log("WoW is not the active window: nothing pressed")
+        self.notify("error")
         return False
+
+    def _hand_to_wow_ai(self, o: Order) -> None:
+        """"oye IA ...": leave the phrase for WoW AI's bridge, then press its Talk
+        key; the bridge takes this audio instead of recording (docs in its voice.js)."""
+        chord = self.chord("WOWAI_TALK")
+        if not chord:
+            self.log("WoW AI's Talk has no key (is WoW AI loaded, and the WoW Voz addon up to date?)")
+            self.notify("error")
+            return
+        path = os.path.expanduser(self.cfg.get("wowAiHandoff", "~/.cache/wow-ai/voice-in.wav"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        pcm = (o.extra or {}).get("pcm") or b""
+        with wave.open(path + ".tmp", "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(16000)
+            w.writeframes(pcm)
+        os.replace(path + ".tmp", path)
+        with open(path + ".json", "w", encoding="utf-8") as f:
+            json.dump({"text": o.text, "t": time.time()}, f, ensure_ascii=False)
+        if self._focused():
+            self.kb.press(chord)
+            self.notify("ok")
 
     def _do(self, o: Order) -> None:
         c = self.cfg
@@ -106,6 +134,17 @@ class Actions:
                 self.kb.press(chord, 0.06)
             self.autorun = False
             return
+        if o.kind == "ask_ai":
+            self._hand_to_wow_ai(o)
+            return
+        if o.kind == "combo":
+            # Each part as if said on its own, one after another; "para" still cuts them all.
+            for part in (o.extra or {}).get("orders", []):
+                if self.stop_event.is_set():
+                    break
+                self._do(part)
+                self.stop_event.wait(0.15)
+            return
         if o.kind == "button":
             b = o.button or {}
             if "number" in b:
@@ -113,17 +152,21 @@ class Actions:
             chord = self.button_chord(b)
             if not chord:
                 self.log(f"no key on that button ({b.get('name') or b.get('command')})")
+                self.notify("error")
                 return
             if self._focused():
                 self.kb.press(chord)
+                self.notify("ok")
             return
         command, how, _, _ = INTENTS[o.kind]
         chord = self.chord(command) if command else None
         if not chord:
-            self.log(f"no usable key for {command} (bind it to a keyboard key in WoW)")
+            self.log(f"no usable key for {command} (bind it to a keyboard key in WoW, or /reload with the WoW Voz addon)")
+            self.notify("error")
             return
         if not self._focused():
             return
+        self.notify("ok")
         if how == "tap":
             n = max(1, min(int(o.count or 1), int(c.get("maxCount", 5))))
             for i in range(n):

@@ -7,27 +7,46 @@ No es un bot ni automatiza nada. **Una orden es una acción**, la que dices, cua
 ## Cómo funciona
 
 ```
-micrófono ──► frase ──► Vosk (lista cerrada) ─┐
-                    └─► Vosk (libre) ─────────┴─► ¿coinciden? ── sí ─► orden (≈0,3 s)
-                                                        │ no
-                                                        ▼
-                                       JEV: ¿qué orden querías decir? ── segura ─► orden (≈0,6 s)
-                                                        │ duda
-                                                        ▼
-                                       Whisper (mejor transcripción) ─► JEV ─► orden, o nada
-                                                                                   │
-                     teclado virtual (/dev/uinput) ◄── solo si WoW es la ventana activa
+micrófono ──► frase ──► Vosk (lista cerrada + tus alias) ─┐
+                    └─► Vosk (libre) ─────────────────────┴─► ¿iguales o casi iguales? ── sí ─► orden (≈50–300 ms)
+                                                                     │ no
+                                                                     ▼
+                         alias · botón por sonido · "oye IA ..." · órdenes combinadas
+                                                                     │ no
+                                                                     ▼
+                         JEV (frase libre + la frase de orden más parecida como pista) ── segura ─► orden (≈0,5 s)
+                                                                     │ duda
+                                                                     ▼
+                                              nada (y se apunta el fallo para aprender)
 ```
 
-1. **Vosk dos veces a la vez** sobre el mismo audio: con la lista cerrada de órdenes (responde siempre con una de ellas) y en libre (lo que dijiste de verdad). Si coinciden, es una orden exacta, en unos 30–300 ms.
-2. **JEV** (el modelo de decisiones de TypeSafe, vía OpenRouter) lee la frase libre y elige la orden, o *ninguna*. "Dale un salto" → saltar; "muévete un poquito hacia delante" → adelante; "oye, ¿qué hora es?" → nada. Los números los saca wow-voz de tus palabras, no JEV, porque contar no es lo suyo.
-3. Si JEV duda (confianza < 0,8), **Whisper** transcribe mejor y JEV decide otra vez. Si sigue sin estar claro, **no pasa nada**: hablar con alguien de la habitación no mueve al personaje.
+1. **Vosk dos veces a la vez** sobre el mismo audio: con la lista cerrada de órdenes (y tus alias) y en libre. Si dicen lo mismo, o suenan casi igual ("gira de echa" / "gira a la derecha"), es esa orden.
+2. **La frase libre** se compara con los alias, con los nombres de tus botones por sonido ("es viscera" → Eviscerar), con "oye IA ..." y con órdenes combinadas ("salta y gira a la derecha": todas o ninguna).
+3. **JEV** (el modelo de decisiones de TypeSafe, vía OpenRouter) lee la frase libre, con la frase de orden más parecida como pista, y elige la orden o *ninguna*. Solo actúa con confianza ≥ 0,8. Los números salen de tus palabras, no de JEV.
+4. Si no está claro, **no pasa nada**, y el fallo queda apuntado para el aprendizaje.
 
-**Teclas.** El teclado virtual es un dispositivo `/dev/uinput`, igual que el mando virtual de Sunshine. El escritorio lo trata como un teclado más y las teclas van a la ventana activa. Las teclas se resuelven con tu distribución de teclado, así que "-" o "º" caen donde tu teclado español los tiene.
+Whisper ya no se usa, por velocidad; se puede volver a activar con `whisperFallback: true`.
 
-**Órdenes sin tecla propia** (el foco no tiene atajo por defecto, y Forever no tiene marco de foco, aunque `/focus` funciona): el addon crea un botón de macro seguro para cada una y lo asocia a una tecla que no uses, como Ctrl+Mayús+F9. La asociación dura solo la sesión y nunca se guarda en tus atajos. Como la pulsación es real, funcionan también en combate.
+## Aprendizaje de palabras
 
-**Qué tecla hace qué.** El addon **WoW Voz** (`addon/WoWVoz`) solo lee: apunta tus atajos reales (moverse, saltar, caminar automático, objetivo...) y qué hechizo, objeto o macro hay en cada botón de las barras, con su tecla. El juego lo guarda en disco al hacer `/reload` o al salir, y wow-voz lo recarga solo. Sin él se usan las teclas por defecto de WoW (W A S D Q E, Espacio, Bloq Num, Tab, 1–0 - =).
+wow-voz apunta en `~/.cache/wow-voz/misses.jsonl` cada frase que no entendió, y la orden que dijiste justo después (en menos de 6 s), porque la gente repite: "quieres pierda"... "izquierda".
+
+Cada hora, `wow-voz-learn` (un temporizador de systemd) le pasa esos fallos a un agente, por defecto `claude -p --model opus --effort low` (`learnCommand` en la configuración). El agente propone alias. **El propio programa comprueba cada propuesta** y solo la acepta si:
+- el fallo fue seguido de esa orden dos veces, o una vez y JEV adivinó lo mismo;
+- no es una palabra común ("hola", "vale"...);
+- no significa ya otra orden.
+
+Lo aceptado va a `~/.config/wow-voz/learned.json`, que wow-voz recarga solo. Lo que aprendió o rechazó queda en `~/.cache/wow-voz/learn.log`.
+
+**Tus propios alias** van en `~/.config/wow-voz/aliases.json`, que manda sobre los aprendidos:
+
+```json
+{ "evis": "button:Eviscerar", "patada": "button:Patada", "gira un pelín": {"order": "turn_right", "degrees": 10} }
+```
+
+## Preguntar a la IA
+
+"**Oye IA**, ¿qué misión hago ahora?". wow-voz deja el audio de la frase en `~/.cache/wow-ai/voice-in.wav` y pulsa la tecla de "Hablar" de WoW AI (el addon WoW Voz le asigna una si no tiene). El puente de WoW AI ve el audio reciente, lo transcribe en lugar de grabar, le quita el "oye IA" y lo envía al chat activo.
 
 ## Órdenes
 
@@ -47,6 +66,8 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 | interactúa · siéntate · mapa · bolsas | Sus atajos |
 | lanza/usa/tira *nombre* · *nombre* · botón *tres* | La tecla del botón donde está ese hechizo, objeto o macro |
 | voz pausa · voz activa (activa la voz, empieza) | Deja de obedecer / vuelve a obedecer |
+| salta y gira a la derecha, luego adelante | Varias órdenes seguidas (hasta 3; si una no se entiende, ninguna) |
+| oye IA, *pregunta* | Se la pasa a WoW AI |
 
 Cualquier otra forma de decirlo pasa por JEV.
 
@@ -55,7 +76,12 @@ Cualquier otra forma de decirlo pasa por JEV.
 - **Fuera:** `wow-voz-toggle`, para asignarlo a un atajo del escritorio.
 - **Por voz:** "voz pausa" / "voz activa".
 
-**Pitidos** (por los altavoces del PC): uno ascendente al arrancar o al decir "voz activa", uno descendente al pausar, y dos pitidos graves si das una orden estando en pausa.
+**Pitidos** (por los altavoces del PC):
+- ascendente: al arrancar o al decir "voz activa";
+- descendente: al pausar;
+- dos graves: has dado una orden estando en pausa;
+- un tic: orden pulsada;
+- un zumbido: la orden no tiene tecla, o WoW no es la ventana activa.
 
 **Seguros:**
 - Nada se pulsa si WoW no es la ventana activa.
@@ -71,6 +97,8 @@ P=~/.local/share/wow-ai-voice/bin/python
 $P -m wowvoz --keys            # qué tecla hace cada cosa (atajos del addon o por defecto)
 $P -m wowvoz --say "dale un salto"   # qué haría una frase, sin micrófono ni teclas
 $P -m wowvoz --dry-run         # escucha y dice qué pulsaría, sin pulsar
+$P -m wowvoz --calibrar        # mide el ruido y tu voz, y ajusta el umbral del micrófono
+$P -m wowvoz.learn             # aprender ahora de los fallos (lo mismo que el temporizador)
 $P -m wowvoz                   # a jugar
 systemctl --user start wow-voz # como servicio (arranca activo; "voz pausa" / "voz activa")
 journalctl --user -u wow-voz -f   # lo que oye y hace

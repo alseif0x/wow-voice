@@ -1,21 +1,40 @@
-"""From a spoken phrase to an Order, fastest path first:
+"""From a spoken phrase to an Order, with Vosk and JEV only:
 
   1. Vosk twice on the same audio, at the same time: once with the closed list of
-     order phrases (it always answers with one of them) and once free (what was
-     really said). When they agree, it is an exact order: done in ~0.3 s.
-  2. When they don't, JEV reads the free transcript and says which order was
-     meant, or none ("dale un salto" -> jump; a sentence to someone else -> none).
-  3. When JEV isn't sure, Whisper transcribes the audio better and JEV decides
-     again. Still not sure: nothing happens.
+     order phrases (yours and learned aliases included), once free. The same
+     phrase, or sounding alike, is the order: ~50-300 ms.
+  2. The free transcript is checked against aliases, button names by sound, and
+     "oye IA ..." (a question for WoW AI).
+  3. Otherwise JEV reads the free transcript, with Vosk's closest order phrase
+     as a hint about mishearing, and picks the order or none.
+  Not sure: nothing happens, and the miss is logged for wow-voz-learn.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import threading
 
 from . import commands as C
 from . import jev
+from .aliases import LEARNED_FILE, USER_FILE, Aliases
+
+ASK_AI = re.compile(r"^(?:oye |eh |hey |ey |pregunta(?:le)? a la |dile a la |oiga )?(?:ia|i a|y a|la ia|inteligencia artificial|asistente)\b(.*)$")
+WAKE = ("oye", "eh", "hey", "ey", "pregunta", "dile", "oiga")
+
+
+def ask_ai_question(free: str) -> str | None:
+    """"oye IA, qué misión hago" -> "qué misión hago"; None when it isn't one."""
+    t = C.norm(free)
+    m = ASK_AI.match(t)
+    if not m:
+        return None
+    # Without "oye" in front, only a literal "ia" and a real question: "y a la
+    # derecha" sounds just like "IA la derecha".
+    if not t.startswith(WAKE) and not (t.startswith("ia ") and len(m.group(1).split()) >= 3):
+        return None
+    return m.group(1).strip() or None
 
 
 class Recognizer:
@@ -29,7 +48,8 @@ class Recognizer:
         self.free = vosk.KaldiRecognizer(self.model, 16000)
         self.grammar = None
         self.buttons: list[dict] = []
-        self._whisper = None
+        self.aliases = Aliases(cfg.get("aliasesFile") or USER_FILE, cfg.get("learnedFile") or LEARNED_FILE)
+        self.aliases.refresh()
 
     def known(self, phrase: str) -> bool:
         """Every word in Vosk's vocabulary? (It drops unknown words from a grammar,
@@ -41,39 +61,34 @@ class Recognizer:
 
     def set_buttons(self, buttons: list[dict]) -> None:
         self.buttons = buttons
-        all_phrases = C.phrases(buttons)
-        phrases = [p for p in all_phrases if self.known(p)]
+        all_phrases = C.phrases(buttons) + self.aliases.phrases()
+        phrases = [p for p in dict.fromkeys(all_phrases) if self.known(p)]
         unknown = sorted({C.spoken_name(b.get("name") or "") for b in buttons} - set(phrases) - {""})
         if unknown:
-            self.log(f"not in Vosk's vocabulary (left to sound matching and JEV): {', '.join(unknown)}")
+            self.log(f"not in Vosk's vocabulary (left to sound matching, aliases and JEV): {', '.join(unknown)}")
         self.grammar = self.vosk.KaldiRecognizer(self.model, 16000, json.dumps(phrases + ["[unk]"], ensure_ascii=False))
+
+    def refresh_aliases(self) -> bool:
+        if self.aliases.refresh():
+            self.set_buttons(self.buttons)
+            return True
+        return False
 
     def _vosk(self, rec, pcm: bytes, out: dict, key: str) -> None:
         rec.AcceptWaveform(pcm)
         out[key] = json.loads(rec.FinalResult()).get("text", "")
         rec.Reset()
 
-    def whisper_text(self, pcm: bytes) -> str:
-        import numpy as np
-        if self._whisper is None:
-            from faster_whisper import WhisperModel
-            self._whisper = WhisperModel(self.cfg["whisperModel"], device=self.cfg.get("device", "cpu"), compute_type="int8")
-        audio = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
-        segs, _ = self._whisper.transcribe(audio, language="es", beam_size=1, vad_filter=False,
-                                           initial_prompt="World of Warcraft. Salta, adelante, atrás, gira, corre, para, objetivo.")
-        return " ".join(s.text.strip() for s in segs).strip()
+    def exact(self, text: str) -> C.Order | None:
+        return self.aliases.order_for(text, self.buttons) or C.parse(text, self.buttons)
 
-    def ask_jev(self, text: str, via: str) -> C.Order | None:
-        return self.jev_decision(text, via)[0]
-
-    def jev_decision(self, text: str, via: str, min_conf: float | None = None) -> tuple[C.Order | None, bool]:
-        """(order or None, sure): sure is True when JEV answered confidently,
-        order or "none" alike, so there is no point asking Whisper."""
-        body, opts = C.jev_request(text, self.buttons)
+    def jev_decision(self, text: str, via: str, hint: str = "", min_conf: float | None = None) -> tuple[C.Order | None, dict]:
+        """(order or None, what JEV said)."""
+        body, opts = C.jev_request(text, self.buttons, hint=hint)
         ans, err, ms = jev.decide(body, self.cfg["jevKeyFile"], float(self.cfg.get("jevTimeout", 2.5)))
         if ans is None:
             self.log(f"  jev: {err} ({ms} ms)")
-            return None, False
+            return None, {"error": err}
         a = ans.get("answers", {}).get("order", {})
         conf = float(a.get("confidence") or 0)
         min_conf = float(min_conf if min_conf is not None else self.cfg.get("jevMinConfidence", 0.8))
@@ -81,10 +96,32 @@ class Recognizer:
         o = C.order_from_jev(ans, opts, text, min_conf)
         if o:
             o.via = via
-        return o, conf >= min_conf
+        return o, {"choice": a.get("choice"), "confidence": round(conf, 2)}
+
+    def ask_jev(self, text: str, via: str) -> C.Order | None:
+        return self.jev_decision(text, via)[0]
+
+    def combined(self, text: str) -> C.Order | None:
+        """"salta y gira a la derecha, luego adelante" -> up to 3 orders, only when
+        every part is one (exactly, as an alias, or by JEV); otherwise none of them."""
+        parts = C.split_orders(text)
+        if len(parts) < 2 or len(parts) > int(self.cfg.get("maxCombined", 3)):
+            return None
+        orders = []
+        for part in parts:
+            o = self.exact(part)
+            if not o:
+                b = C.button_by_sound(part, self.buttons, float(self.cfg.get("nearMatch", 0.75)))
+                o = C.Order("button", button=b, text=part) if b else None
+            if not o:
+                o, _ = self.jev_decision(part, "jev")
+            if not o or o.kind in ("pause", "resume", "ask_ai"):
+                return None
+            orders.append(o)
+        return C.Order("combo", text=text, via="vosk+", extra={"orders": orders})
 
     def order_for(self, pcm: bytes) -> tuple[C.Order | None, dict]:
-        """The order in this phrase, if any, and what each stage heard (for the log)."""
+        """The order in this phrase, if any, and what each stage heard (for the log and the learner)."""
         heard: dict = {}
         t1 = threading.Thread(target=self._vosk, args=(self.grammar, pcm, heard, "grammar"))
         t2 = threading.Thread(target=self._vosk, args=(self.free, pcm, heard, "free"))
@@ -92,40 +129,37 @@ class Recognizer:
         g, f = heard.get("grammar", ""), heard.get("free", "")
         if not g and not f:
             return None, heard
-        agree = g and g != "[unk]" and C.norm(" ".join(w for w in f.split() if C.norm(w) not in C.FILLER)) == C.norm(g)
-        if agree:
-            o = C.parse(g, self.buttons)
+        g_ok = bool(g) and g != "[unk]"
+        f_clean = " ".join(w for w in f.split() if C.norm(w) not in C.FILLER)
+        # 1. The same phrase, or sounding alike.
+        same = g_ok and C.norm(f_clean) == C.norm(g)
+        if g_ok and (same or (f and C.close_enough(g, f, float(self.cfg.get("nearMatch", 0.75))))):
+            o = self.exact(g)
             if o:
-                o.via = "vosk"
+                if o.via != "alias":
+                    o.via = "vosk" if same else "vosk~"
                 return o, heard
-        # Not word for word, but sounding the same: a misheard order.
-        if g and g != "[unk]" and f and C.close_enough(g, f, float(self.cfg.get("nearMatch", 0.75))):
-            o = C.parse(g, self.buttons)
-            if o:
-                o.via = "vosk~"
-                return o, heard
-        # A free phrase: exact after all? ("vale, salta" with a filler word)
-        if f:
-            o = C.parse(f, self.buttons)
-            if o:
-                o.via = "vosk"
-                return o, heard
-            # A button whose name Vosk can't spell: "es viscera" for "Eviscerar".
-            b = C.button_by_sound(f, self.buttons, float(self.cfg.get("nearMatch", 0.75)))
-            if b:
-                return C.Order("button", button=b, text=f, via="vosk~"), heard
-            o, sure = self.jev_decision(f, "vosk+jev")
-            if o or sure:
-                return o, heard  # an order, or surely none: Whisper wouldn't change that
-        # Whisper only for a real phrase Vosk heard something in, not for room noise.
-        if f and self.cfg.get("whisperFallback", True) and len(pcm) > 16000 * 2 * 0.4:
-            w = self.whisper_text(pcm)
-            heard["whisper"] = w
-            if w and C.norm(w) != C.norm(f):
-                # The last resort gets a stricter bar: a misheard phrase shouldn't move you.
-                o = C.parse(w, self.buttons) or self.jev_decision(w, "whisper+jev", float(self.cfg.get("jevMinConfidenceWhisper", 0.9)))[0]
-                if o:
-                    if not o.via:
-                        o.via = "whisper"
-                    return o, heard
-        return None, heard
+        if not f:
+            return None, heard
+        # 2. The free transcript: exact, an alias, a question for WoW AI, a button by sound.
+        o = self.exact(f)
+        if o:
+            o.via = o.via or "vosk"
+            return o, heard
+        q = ask_ai_question(f)
+        if q:
+            return C.Order("ask_ai", text=q, via="vosk", extra={"pcm": pcm}), heard
+        b = C.button_by_sound(f, self.buttons, float(self.cfg.get("nearMatch", 0.75)))
+        if b:
+            return C.Order("button", button=b, text=f, via="vosk~"), heard
+        # Several orders in one breath: "salta y gira a la derecha".
+        combo = self.combined(f)
+        if combo:
+            return combo, heard
+        # 3. JEV, with the closest order phrase as a hint.
+        o, said = self.jev_decision(f, "vosk+jev", hint=g if g_ok else "")
+        heard["jev"] = said
+        if o and o.kind == "ask_ai":
+            o.text = f
+            o.extra["pcm"] = pcm
+        return o, heard

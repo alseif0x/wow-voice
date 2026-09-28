@@ -6,6 +6,7 @@
   python -m wowvoz --file X.wav what a 16 kHz mono recording would do
   python -m wowvoz --keys       the key map it is using
   python -m wowvoz --paused     start paused ("voz activa" to begin)
+  python -m wowvoz --calibrar   measure the room and your voice, and set the microphone threshold
 """
 
 from __future__ import annotations
@@ -55,12 +56,56 @@ def make_log(path: str):
 
 
 def describe(o: C.Order) -> str:
+    if o.kind == "ask_ai":
+        return f"ask WoW AI: {o.text!r}"
+    if o.kind == "combo":
+        return " + ".join(describe(p) for p in (o.extra or {}).get("orders", []))
     if o.kind == "button":
         b = o.button or {}
         what = b.get("name") or (f"botón {b['number']}" if "number" in b else b.get("command"))
         return f"button {what}"
     extra = f" x{o.count}" if o.count > 1 else (f" {o.seconds:g}s" if o.seconds else (f" {o.degrees:g}°" if o.degrees else ""))
     return o.kind + extra
+
+
+def calibrate(cfg: dict, path: str) -> int:
+    """Measure the room, then the voice, and save a threshold between them."""
+    import json
+    from .listen import rms
+    import statistics
+
+    def levels(seconds: float) -> list[float]:
+        out = []
+        for fr in microphone(cfg["recordCommand"]):
+            out.append(rms(fr))
+            if len(out) * 0.03 >= seconds:
+                break
+        return out
+
+    print("Silencio unos segundos, sin hablar... (midiendo el ruido de la habitación)")
+    time.sleep(0.5)
+    quiet = sorted(levels(3.0))
+    print('Ahora di varias veces, a tu volumen normal: "salta", "adelante", "izquierda"...')
+    time.sleep(0.3)
+    voice = sorted(levels(5.0))
+    noise = quiet[int(len(quiet) * 0.95)] if quiet else 0
+    loud = [v for v in voice if v > noise * 2] or voice
+    speech = statistics.median(loud) if loud else 0
+    if speech <= noise * 1.5:
+        print(f"No distingo tu voz del ruido (ruido {noise:.0f}, voz {speech:.0f}). ¿El micrófono está silenciado o lejos?")
+        return 1
+    threshold = round(max(noise * 1.8, min(speech * 0.35, noise + (speech - noise) * 0.3)))
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        data = {}
+    data["threshold"] = threshold
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"Ruido {noise:.0f}, voz {speech:.0f} -> umbral {threshold} guardado en {path}. Reinicia wow-voz para usarlo.")
+    return 0
 
 
 def main() -> int:
@@ -71,12 +116,16 @@ def main() -> int:
     ap.add_argument("--keys", action="store_true")
     ap.add_argument("--paused", action="store_true")
     ap.add_argument("--config", default=config.CONFIG_FILE)
+    ap.add_argument("--calibrar", "--calibrate", action="store_true")
     args = ap.parse_args()
     cfg = config.load(args.config)
     if args.paused:
         cfg["startPaused"] = True
     log = make_log(cfg["log"])
     x_display()
+
+    if args.calibrar:
+        return calibrate(cfg, args.config)
 
     keymap = load_keymap(cfg["savedVariables"])
     if args.keys:
@@ -93,7 +142,8 @@ def main() -> int:
 
     if args.say is not None:
         b = C.button_by_sound(args.say, rec.buttons, float(cfg.get("nearMatch", 0.75)))
-        o = C.parse(args.say, rec.buttons) or (C.Order("button", button=b, text=args.say, via="sound") if b else None) or rec.ask_jev(args.say, "jev")
+        o = (rec.exact(args.say) or (C.Order("button", button=b, text=args.say, via="sound") if b else None)
+             or rec.combined(args.say) or rec.ask_jev(args.say, "jev"))
         print(describe(o) + f"  (via {o.via or 'parse'}, confidence {o.confidence:.2f})" if o else "no order")
         return 0
     if args.file:
@@ -112,16 +162,16 @@ def main() -> int:
         log(f"no X keyboard map ({e}); run it inside the desktop session")
         return 2
     kb = DryKeyboard(log) if args.dry_run else Keyboard()
-    if cfg.get("whisperFallback", True):
-        # Whisper is the slow last resort: load it now, so its first use doesn't wait for that.
-        import threading
-        threading.Thread(target=lambda: rec.whisper_text(b"\0" * 6400), daemon=True).start()
+    from .learn import MissLog
+    misses = MissLog()
     focus = Focus(cfg["windowName"])
     acts = Actions(kb, keymap, xk, focus, cfg, log)
     log(f"wow-voz listening{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
     beeps = Beeps(cfg)
     beeps.play("off" if acts.paused else "on")
+    if cfg.get("beepOnOrder", True):
+        acts.notify = lambda what: beeps.play(what, every=0.3 if what == "ok" else 2)
 
     def set_on(on: bool, why: str) -> None:
         if on == (not acts.paused):
@@ -192,6 +242,8 @@ def main() -> int:
                     acts.keymap = keymap
                     rec.set_buttons(keymap.named_buttons())
                     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
+                if rec.refresh_aliases():
+                    log(f"aliases: {len(rec.aliases.table)} (yours and learned)")
             pcm = phrases.feed(frame)
             if pcm is None:
                 continue
@@ -205,7 +257,11 @@ def main() -> int:
                 continue  # noise with no words in it
             if not o:
                 log(f"\"{said}\" -> nothing ({ms} ms)")
+                if not acts.paused:
+                    misses.miss(heard)
                 continue
+            if not acts.paused:
+                misses.success(o)
             result = acts.submit(o)
             log(f"\"{said}\" -> {describe(o)} via {o.via} ({ms} ms): {result}")
             if o.kind == "resume":
