@@ -53,6 +53,26 @@ end
 -- from the snapshot. A real key press runs them, so they work in combat too.
 ---------------------------------------------------------------------------
 
+-- After "focus": the new focus's name (PLAYER_FOCUS_CHANGED says it), or why
+-- there is none. Filled in further down, once the focus display exists.
+local focusAnnouncedAt = 0
+local function ReportFocus(id)
+	local P = "|cff66ccff[WoW Voz]|r "
+	if id == "WOWVOZ_FOCUS" and not UnitExists("target") then
+		print(P .. "focus: no tienes objetivo. Selecciona uno (Tab o \"siguiente objetivo\") y vuelve a decir \"focus\".")
+		return
+	end
+	local asked = GetTime()
+	C_Timer.After(0.4, function()
+		if focusAnnouncedAt >= asked then return end -- already said "foco: name"
+		if UnitExists("focus") then
+			print(P .. "foco: " .. (UnitName("focus") or "?") .. " (ya lo era)")
+		else
+			print(P .. "focus: el juego no ha puesto el foco.")
+		end
+	end)
+end
+
 local VOICE = {
 	{ id = "WOWVOZ_FOCUS", macro = "/focus" },
 	{ id = "WOWVOZ_TARGETFOCUS", macro = "/target focus" },
@@ -120,10 +140,14 @@ local function SetupVoiceKeys()
 		b:RegisterForClicks("AnyDown", "AnyUp")
 		if not b.wowvozHooked then
 			b.wowvozHooked = true
-			-- Say that the key got here (a voice order), once per press.
+			-- Say what the voice order did, once per press.
 			b:HookScript("PostClick", function(_, _, down)
 				if down == false then return end
-				print("|cff66ccff[WoW Voz]|r " .. v.macro:gsub("\n", " ; "))
+				if v.id == "WOWVOZ_FOCUS" or v.id == "WOWVOZ_FOCUSFRIEND" then
+					ReportFocus(v.id)
+				else
+					print("|cff66ccff[WoW Voz]|r " .. v.macro:gsub("\n", " ; "))
+				end
 			end)
 		end
 		local key = FreeKey()
@@ -241,6 +265,7 @@ local function ShowFocus(announce)
 		focusText:SetText(name and ("Foco: " .. name) or "")
 	end
 	if announce then
+		focusAnnouncedAt = GetTime()
 		print("|cff66ccff[WoW Voz]|r " .. (name and ("foco: " .. name) or "sin foco"))
 	end
 end
