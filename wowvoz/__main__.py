@@ -143,6 +143,8 @@ def main() -> int:
             o, heard = rec.order_for(pcm)
             ms = int((time.monotonic() - t0) * 1000)
             said = heard.get("whisper") or heard.get("free") or heard.get("grammar") or ""
+            if not o and not heard.get("free") and not heard.get("whisper"):
+                continue  # noise with no words in it
             if not o:
                 log(f"\"{said}\" -> nothing ({ms} ms)")
                 continue

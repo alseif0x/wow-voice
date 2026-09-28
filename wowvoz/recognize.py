@@ -88,7 +88,8 @@ class Recognizer:
             o = self.ask_jev(f, "vosk+jev")
             if o:
                 return o, heard
-        if self.cfg.get("whisperFallback", True) and len(pcm) > 16000 * 2 * 0.4:
+        # Whisper only for a real phrase Vosk heard something in, not for room noise.
+        if f and self.cfg.get("whisperFallback", True) and len(pcm) > 16000 * 2 * 0.4:
             w = self.whisper_text(pcm)
             heard["whisper"] = w
             if w and C.norm(w) != C.norm(f):
