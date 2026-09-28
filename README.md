@@ -33,9 +33,10 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 |---|---|
 | salta · salta dos/tres veces · brinca | Espacio (hasta 5 veces) |
 | adelante · avanza · atrás · retrocede (+ "tres" = 3 s) | W / S un momento (1 s; máximo 5 s) |
-| a la izquierda · a la derecha | Q / E (paso lateral) |
-| gira a la izquierda/derecha · media vuelta | A / D medio segundo / un segundo |
-| corre · caminar automático | Bloq Num |
+| un poco a la izquierda · izquierda · gira a la izquierda · mucho a la izquierda | Gira ~20° · ~45° · ~90° · ~135° (igual a la derecha) |
+| media vuelta · date la vuelta · gira a la derecha treinta grados | 180° · los grados que digas |
+| paso a la izquierda · de lado a la derecha | Q / E (paso lateral, sin girar) |
+| corre · caminar automático · sigue recto · todo recto | Bloq Num |
 | para · alto · quieto | Suelta todo y corta el caminar automático |
 | siguiente objetivo · objetivo amigo | Tab / objetivo aliado |
 | interactúa · siéntate · mapa · bolsas | Sus atajos |
@@ -43,6 +44,11 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 | voz pausa · voz activa (activa la voz, empieza) | Deja de obedecer / vuelve a obedecer |
 
 Cualquier otra forma de decirlo pasa por JEV.
+
+**Activar y desactivar:**
+- **En el juego:** el botón **Voz: ON / OFF** del addon (clic; Mayús + arrastrar para moverlo), `/wowvoz`, o un atajo en *Opciones > Atajos > WoW Voz*. El addon pinta un cuadrado de 8 píxeles en la esquina superior derecha (magenta = activo, cian = apagado) y wow-voz lo lee de la ventana del juego dos veces por segundo.
+- **Fuera:** `wow-voz-toggle`, para asignarlo a un atajo del escritorio.
+- **Por voz:** "voz pausa" / "voz activa".
 
 **Pitidos** (por los altavoces del PC): uno ascendente al arrancar o al decir "voz activa", uno descendente al pausar, y dos pitidos graves si das una orden estando en pausa.
 

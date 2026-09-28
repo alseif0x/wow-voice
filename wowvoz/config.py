@@ -30,13 +30,15 @@ DEFAULTS = {
     # How long things last
     "holdSeconds": 1.0,
     "maxHoldSeconds": 5.0,
-    "turnSeconds": 0.5,
-    "turnAroundSeconds": 1.0,
+    "turnDegrees": 45,            # a bare "izquierda" / "derecha"
+    "turnDegreesPerSecond": 180,  # WoW's keyboard turn rate
     "jumpInterval": 0.9,
     "maxCount": 5,
     "startPaused": False,
     # Short beeps on the PC's speakers: voice orders on / off, and "paused" when an order is ignored.
     "beeps": True,
+    # Follow the WoW Voz addon's on/off button (a marker in the game's top-right corner).
+    "gameSwitch": True,
     "playCommand": ["pw-play"],
     "log": "~/.cache/wow-voz/wow-voz.log",
 }

@@ -140,6 +140,6 @@ class Actions:
             if o.kind in ("forward", "back"):
                 self.autorun = False  # walking by hand ends autorun
         elif how == "turn":
-            self.kb.hold(chord, float(c.get("turnSeconds", 0.5)), self.stop_event)
-        elif how == "around":
-            self.kb.hold(chord, float(c.get("turnAroundSeconds", 1.0)), self.stop_event)
+            # Keyboard turning in WoW is 180 degrees a second.
+            deg = max(5.0, min(float(o.degrees or c.get("turnDegrees", 45)), 180.0))
+            self.kb.hold(chord, deg / float(c.get("turnDegreesPerSecond", 180)), self.stop_event)

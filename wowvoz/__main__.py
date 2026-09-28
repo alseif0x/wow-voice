@@ -59,7 +59,7 @@ def describe(o: C.Order) -> str:
         b = o.button or {}
         what = b.get("name") or (f"botón {b['number']}" if "number" in b else b.get("command"))
         return f"button {what}"
-    extra = f" x{o.count}" if o.count > 1 else (f" {o.seconds:g}s" if o.seconds else "")
+    extra = f" x{o.count}" if o.count > 1 else (f" {o.seconds:g}s" if o.seconds else (f" {o.degrees:g}°" if o.degrees else ""))
     return o.kind + extra
 
 
@@ -121,6 +121,40 @@ def main() -> int:
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
     beeps = Beeps(cfg)
     beeps.play("off" if acts.paused else "on")
+
+    def set_on(on: bool, why: str) -> None:
+        if on == (not acts.paused):
+            return
+        acts.submit(C.Order("resume" if on else "pause"))
+        beeps.play("on" if on else "off")
+        log(f"voice orders {'ON' if on else 'OFF'} ({why})")
+
+    # The in-game switch (the WoW Voz addon's button): followed whenever it changes.
+    import threading
+    if cfg.get("gameSwitch", True):
+        def watch_switch():
+            try:
+                from .screen import Switch
+                sw = Switch(cfg.get("windowName", "World of Warcraft").strip("^$"))
+            except OSError as e:
+                log(f"in-game switch unavailable: {e}")
+                return
+            last = None
+            while True:
+                try:
+                    state = sw.read()
+                except Exception:  # a window going away mid-read
+                    state = None
+                if state is not None and state != last:
+                    if last is not None or state != (not acts.paused):
+                        set_on(state, "the in-game button")
+                    last = state
+                time.sleep(0.5)
+        threading.Thread(target=watch_switch, daemon=True).start()
+
+    # Outside the game: `wow-voz-toggle` (systemctl --user kill -s USR1 wow-voz).
+    import signal
+    signal.signal(signal.SIGUSR1, lambda *_: set_on(acts.paused, "wow-voz-toggle"))
     phrases = Phrases(float(cfg["threshold"]), int(cfg["silenceMs"]), int(cfg["maxPhraseMs"]))
     sv_mtime = 0.0
     last_check = 0.0

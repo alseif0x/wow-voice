@@ -24,9 +24,9 @@ class Parse(unittest.TestCase):
     def test_exact_orders(self):
         cases = {
             "salta": ("jump", 1), "salta dos veces": ("jump", 2), "Brinca tres veces": ("jump", 3),
-            "adelante": ("forward", 1), "atrás": ("back", 1), "a la izquierda": ("strafe_left", 1),
-            "gira a la derecha": ("turn_right", 1), "media vuelta": ("turn_around", 1),
-            "corre": ("autorun", 1), "caminar automático": ("autorun", 1), "para": ("stop", 1),
+            "adelante": ("forward", 1), "atrás": ("back", 1), "paso a la izquierda": ("strafe_left", 1),
+            "gira a la derecha": ("turn_right", 1), "media vuelta": ("turn_left", 1),
+            "corre": ("autorun", 1), "caminar automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
             "vale, salta": ("jump", 1),
         }
@@ -34,6 +34,18 @@ class Parse(unittest.TestCase):
             o = C.parse(text, BUTTONS)
             self.assertIsNotNone(o, text)
             self.assertEqual((o.kind, o.count), (kind, count), text)
+
+    def test_turns_are_small_unless_said_otherwise(self):
+        cases = {"izquierda": ("turn_left", 45), "a la derecha": ("turn_right", 45), "un poco a la izquierda": ("turn_left", 20),
+                 "gira a la derecha": ("turn_right", 90), "mucho a la izquierda": ("turn_left", 135),
+                 "media vuelta": ("turn_left", 180), "gira a la derecha treinta grados": ("turn_right", 30),
+                 "gira a la izquierda cuarenta y cinco grados": ("turn_left", 45)}
+        for text, (kind, deg) in cases.items():
+            o = C.parse(text, BUTTONS)
+            self.assertEqual((o.kind, o.degrees), (kind, deg), text)
+        self.assertEqual(C.turn_degrees(C.norm("gírate un poquito a la derecha").split()), 20)
+        self.assertEqual(C.turn_degrees(C.norm("date la vuelta entera").split()), 180)
+        self.assertEqual(C.turn_degrees(C.norm("mira a la izquierda").split()), 45)
 
     def test_seconds_and_buttons(self):
         self.assertEqual(C.parse("adelante tres", BUTTONS).seconds, 3.0)
@@ -93,6 +105,11 @@ def run_orders(orders, focus=True, cfg=None, keymap=None):
 
 
 class Doing(unittest.TestCase):
+    def test_turn_time_follows_the_degrees(self):
+        ev, _ = run_orders([C.Order("turn_left", degrees=45), C.Order("turn_right", degrees=180), C.Order("turn_left", degrees=999)],
+                           cfg={"turnDegreesPerSecond": 180})
+        self.assertEqual([round(e[2], 2) for e in ev if e[0] == "hold"], [0.25, 1.0, 1.0])
+
     def test_jumps_holds_and_buttons(self):
         ev, _ = run_orders([C.Order("jump", count=2), C.Order("forward"), C.parse("lanza bola de fuego", BUTTONS)])
         self.assertEqual([e[0] for e in ev], ["press", "press", "hold", "press"])
