@@ -1,136 +1,207 @@
-# wow-voz
+<p align="center">
+  <img src="docs/banner.svg" alt="wow-voz: play World of Warcraft with your voice" width="100%">
+</p>
 
-Jugar a World of Warcraft (Forever, bajo Wine en Linux) **guiado por la voz**. Dices una orden y se pulsa la tecla que tú pulsarías: "salta", "salta dos veces", "adelante", "atrás", "gira a la derecha", "caminar automático", "para", "siguiente objetivo", "lanza bola de fuego"...
+<p align="center">
+  <a href="README.es.md">🇪🇸 Leer en español</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-you-can-say">What you can say</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#faq">FAQ</a>
+</p>
 
-No es un bot ni automatiza nada. **Una orden es una acción**, la que dices, cuando la dices. Nada se repite ni se encadena solo, igual que con el teclado o el mando. Es un módulo aparte de [WoW AI](../wow-ai): funciona sin él y no toca su código.
+<p align="center">
+  <img alt="Linux" src="https://img.shields.io/badge/Linux-tested-2ea44f?logo=linux&logoColor=white">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-experimental-f5c542?logo=windows&logoColor=white">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-experimental-f5c542?logo=apple&logoColor=white">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white">
+  <img alt="Languages" src="https://img.shields.io/badge/speech-Espa%C3%B1ol%20%7C%20English-8a63d2">
+  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-lightgrey">
+</p>
 
-## Cómo funciona
+**wow-voz turns your voice into one more input device for World of Warcraft.** Say *"jump"*, *"strafe left"*, *"next target"* or *"cast fireball"*, and it presses the key you would have pressed: the key **you** bound, on **your** action bars. It works in Spanish and English, and the speech recognition runs on your own PC.
 
+It is not a bot. **One spoken order is one key press**, when you say it. Nothing repeats, chains or plays for you. It is built for playing with a controller or one hand on the mouse, for accessibility, or for keeping your hands free while you walk around town.
+
+```text
+21:04:24  "focus"                  -> focus                  via vosk      (84 ms)
+21:15:07  "se coger todo"          -> interact (loot)        via vosk+jev  (433 ms)
+21:17:37  "volpi siniestro"        -> button Golpe siniestro via vosk~     (91 ms)
+21:31:38  "gira izquierda"         -> turn_left 90°          via vosk      (64 ms)
 ```
-micrófono ──► frase ──► Vosk (lista cerrada + tus alias) ─┐
-                    └─► Vosk (libre) ─────────────────────┴─► ¿iguales o casi iguales? ── sí ─► orden (≈50–300 ms)
-                                                                     │ no
-                                                                     ▼
-                         alias · botón por sonido · "oye IA ..." · órdenes combinadas
-                                                                     │ no
-                                                                     ▼
-                         JEV (frase libre + la frase de orden más parecida como pista) ── segura ─► orden (≈0,5 s)
-                                                                     │ duda
-                                                                     ▼
-                                              nada (y se apunta el fallo para aprender)
+<sub>From a real session's log (aligned). Misheard words still find the right order: "volpi siniestro" was *Golpe siniestro* (Sinister Strike).</sub>
+
+## Highlights
+
+- 🎯 **Reads your real key bindings.** A tiny read-only addon tells wow-voz which key does what, and which spell, item or macro sits on each button. Say the spell's name and it presses that button's key. You don't map anything by hand.
+- ⚡ **Fast and offline.** [Vosk](https://alphacephei.com/vosk/) recognizes speech locally in 50–300 ms, twice at once: against the list of orders, and freely.
+- 🧠 **Understands loose phrasing (optional).** When a phrase isn't an exact order, [JEV](#jev-optional) (a small decision model) picks the order you meant, or none. "loot the corpse", "cast sinister strike" and "turn a little bit to the right" all work. Only the text is sent, never audio.
+- 📚 **Learns your mishearings (optional).** Missed phrases followed by the order you repeated become aliases, after an hourly review by an AI agent. The code checks the evidence, so one fluke never becomes a rule.
+- 🎮 **Made for controller and gamepad UI players.** It runs alongside the gamepad. An in-game **Voice: ON/OFF** button, beeps on the PC speakers, and "focus" and loot feedback in the chat.
+- 🌍 **Spanish and English**, picked from your game's language. Adding a language takes one file.
+- 🛡️ **Safe by design.** Keys go only to the WoW window, holds are capped, and *"stop"* releases everything at once.
+
+## Quick start
+
+You need a microphone on the PC that runs the game, and Python 3.10+.
+
+<details open>
+<summary><b>🐧 Linux</b> (Wine, Lutris, Steam/Proton) — tested</summary>
+
+```bash
+git clone https://github.com/alseif0x/wow-voz.git && cd wow-voz
+./install.sh                  # venv + Vosk models + addon + systemd user units
+systemctl --user start wow-voz
+journalctl --user -u wow-voz -f   # see what it hears and does
+```
+`install.sh` finds WoW under `~/Games`, `~/.wine` or Steam's `compatdata` (or pass `--addons <AddOns folder>`). The virtual keyboard needs `/dev/uinput`, and the installer tells you how to allow it if it isn't allowed yet. Works on X11 and on Wayland desktops, because WoW under Wine is an Xwayland window.
+</details>
+
+<details>
+<summary><b>🪟 Windows</b> — experimental</summary>
+
+```powershell
+git clone https://github.com/alseif0x/wow-voz.git; cd wow-voz
+powershell -ExecutionPolicy Bypass -File install.ps1
+& "$env:LOCALAPPDATA\wow-voz\wow-voz.cmd"
+```
+Keys are sent with `SendInput` scan codes, following your keyboard layout. If WoW runs as administrator, run wow-voz as administrator too.
+</details>
+
+<details>
+<summary><b>🍎 macOS</b> — experimental</summary>
+
+```bash
+git clone https://github.com/alseif0x/wow-voz.git && cd wow-voz
+./install.sh
+"$HOME/Library/Application Support/wow-voz/venv/bin/python" -m wowvoz
+```
+Allow your terminal in *System Settings › Privacy & Security* under **Accessibility** (to press keys), **Microphone**, and **Screen Recording** (only for the in-game ON/OFF button).
+</details>
+
+Then, in the game: restart it once so it finds the new **WoW Voz** addon, `/reload`, and speak. Test a phrase without the microphone:
+
+```bash
+python -m wowvoz --say "jump twice" --lang en     # -> jump x2
+python -m wowvoz --say "salta dos veces"          # -> jump x2 (Spanish)
+python -m wowvoz --calibrate                      # set the microphone threshold for your room
 ```
 
-1. **Vosk dos veces a la vez** sobre el mismo audio: con la lista cerrada de órdenes (y tus alias) y en libre. Si dicen lo mismo, o suenan casi igual ("gira de echa" / "gira a la derecha"), es esa orden.
-2. **La frase libre** se compara con los alias, con los nombres de tus botones por sonido ("es viscera" → Eviscerar), con "oye IA ..." y con órdenes combinadas ("salta y gira a la derecha": todas o ninguna).
-3. **JEV** (el modelo de decisiones de TypeSafe, vía OpenRouter) lee la frase libre, con la frase de orden más parecida como pista, y elige la orden o *ninguna*. Solo actúa con confianza ≥ 0,8. Los números salen de tus palabras, no de JEV.
-4. Si no está claro, **no pasa nada**, y el fallo queda apuntado para el aprendizaje.
+## What you can say
 
-Whisper ya no se usa, por velocidad; se puede volver a activar con `whisperFallback: true`.
+A few of each. The full lists are in [`wowvoz/lang/en.py`](wowvoz/lang/en.py) and [`wowvoz/lang/es.py`](wowvoz/lang/es.py). Anything close, or said another way, goes to JEV.
 
-## Aprendizaje de palabras
+| English | Español | Does |
+|---|---|---|
+| jump · jump twice · hop | salta · salta dos veces | Jump (up to 5 times) |
+| jump left / forward | salta a la izquierda / adelante | Jump while moving that way |
+| forward · move back · backpedal (+ "three" = 3 s) | adelante · atrás · retrocede | Walk forward/back a moment |
+| left · a little right · turn left · hard left | izquierda · un poco a la derecha · gira a la izquierda · mucho a la izquierda | Turn 45° · 20° · 90° · 135° |
+| turn around · turn right thirty degrees | media vuelta · gira a la derecha treinta grados | 180° / the degrees you say |
+| strafe left · step right | paso a la izquierda · de lado a la derecha | Strafe |
+| walk · run · auto run · slow down · faster | camina · corre · automático · despacio · más rápido | Walk or run ahead, autorun, change speed |
+| stop · halt | para · alto | Release everything, end autorun |
+| next target · target friend · assist | siguiente objetivo · objetivo amigo · asiste | Targeting |
+| focus · target focus · clear focus · focus ally | focus · vuelve al foco · quita el foco · focus aliado | Focus (it tells you in chat what it did) |
+| loot · pick up · interact | recoger · despojar · saquea | Loot the corpse in front of you, talk, open |
+| cast fireball · hearthstone · button three | lanza bola de fuego · piedra de hogar · botón tres | The key of the button that has it |
+| jump and turn right, then forward | salta y gira a la derecha, luego adelante | Up to 3 orders (all, or none if one isn't clear) |
+| map · bags · sit · close | mapa · bolsas · siéntate · cierra | Their keys |
+| voice off · voice on | voz pausa · voz activa | Stop / start listening |
+| hey AI, where do I turn this in? | oye IA, ¿dónde entrego esto? | Ask [WoW AI](https://github.com/chelinho139/wow-ai) (if installed) |
 
-wow-voz apunta en `~/.cache/wow-voz/misses.jsonl` cada frase que no entendió, y la orden que dijiste justo después (en menos de 6 s), porque la gente repite: "quieres pierda"... "izquierda".
+**Beeps:** a rising tone means on, a falling tone off, a tick when an order is pressed, and a buzz when it can't be (no key for it, or WoW isn't the active window).
 
-Cada hora, `wow-voz-learn` (un temporizador de systemd) le pasa esos fallos a un agente, por defecto `claude -p --model opus --effort low` (`learnCommand` en la configuración). El agente propone alias. **El propio programa comprueba cada propuesta** y solo la acepta si:
-- el fallo fue seguido de esa orden dos veces, o una vez y JEV adivinó lo mismo;
-- no es una palabra común ("hola", "vale"...);
-- no significa ya otra orden.
+## How it works
 
-Lo aceptado va a `~/.config/wow-voz/learned.json`, que wow-voz recarga solo. Lo que aprendió o rechazó queda en `~/.cache/wow-voz/learn.log`.
+```mermaid
+flowchart LR
+    M[🎤 phrase] --> G[Vosk<br/>order list]
+    M --> F[Vosk<br/>free speech]
+    G --> S{same or<br/>sounds alike?}
+    F --> S
+    S -- yes --> K[⌨️ your key]
+    S -- no --> A[aliases · button names by sound<br/>'hey AI' · combined orders]
+    A -- found --> K
+    A -- no --> J[JEV<br/>+ closest order as a hint]
+    J -- sure --> K
+    J -- not sure --> N[nothing<br/>logged for learning]
+    K --> W[World of Warcraft<br/>only while it has focus]
+```
 
-**Tus propios alias** van en `~/.config/wow-voz/aliases.json`, que manda sobre los aprendidos:
+- **The addon** (`addon/WoWVoz`) only reads. It saves your bindings and what's on each action button, and wow-voz reads that file after `/reload`. Actions with no keyboard key (focus macros, "interact", WoW AI's Talk) get a free key such as Ctrl+Shift+F12, only for the session, without touching your settings.
+- **The in-game button** paints an 8×8 pixel square in the top-right corner (magenta = on, cyan = off), and wow-voz reads it off the game window. No hooks, no memory reading.
+- **Keys** come from a virtual keyboard (`/dev/uinput` on Linux, `SendInput` on Windows, Quartz events on macOS), exactly like a real one.
+
+## Optional extras
+
+### JEV (optional)
+JEV (`typesafe/jev-1.13`) is a decision model reached through [OpenRouter](https://openrouter.ai/). wow-voz asks it one multiple-choice question: *which of these orders, or none?* It acts only at ≥ 0.8 confidence, and it takes numbers from your own words, never from the model. Put your key in `~/.config/wow-voz/openrouter.env` (`OPENROUTER_API_KEY=...`) or in the environment. Without it, exact orders, aliases and name-by-sound matching still work.
+
+### Learning from misses (optional)
+Every missed phrase goes to `~/.cache/wow-voz/misses.jsonl`, along with the order you said right after it. An hourly timer (`wow-voz-learn`) shows them to an agent (`claude -p` by default; any CLI that reads a prompt and prints JSON works). The agent proposes aliases, and the code keeps only the ones the log backs up (followed by that order twice, or once plus JEV's guess). They land in `~/.config/wow-voz/learned.json`. Your own aliases go in `~/.config/wow-voz/aliases.json`:
 
 ```json
-{ "evis": "button:Eviscerar", "patada": "button:Patada", "gira un pelín": {"order": "turn_right", "degrees": 10} }
+{ "evis": "button:Eviscerate", "hop hop": {"order": "jump", "count": 2}, "nudge right": {"order": "turn_right", "degrees": 10} }
 ```
 
-## Preguntar a la IA
+### WoW AI
+With the [WoW AI](https://github.com/chelinho139/wow-ai) addon, *"hey AI, …"* hands the recorded phrase to its chat, so you can ask an AI agent about quests, gear or macros without typing.
 
-"**Oye IA**, ¿qué misión hago ahora?". wow-voz deja el audio de la frase en `~/.cache/wow-ai/voice-in.wav` y pulsa la tecla de "Hablar" de WoW AI (el addon WoW Voz le asigna una si no tiene). El puente de WoW AI ve el audio reciente, lo transcribe en lugar de grabar, le quita el "oye IA" y lo envía al chat activo.
+## Configuration
 
-## Órdenes
+`~/.config/wow-voz/config.json` overrides the defaults in [`wowvoz/config.py`](wowvoz/config.py). The ones you might touch:
 
-| Dices | Hace |
-|---|---|
-| salta · salta dos/tres veces · brinca | Espacio (hasta 5 veces) |
-| adelante · avanza · atrás · retrocede (+ "tres" = 3 s) | W / S un momento (1 s; máximo 5 s) |
-| un poco a la izquierda · izquierda · gira a la izquierda · mucho a la izquierda | Gira ~20° · ~45° · ~90° · ~135° (igual a la derecha) |
-| media vuelta · gira totalmente · gira 180 grados / gira a la derecha treinta grados | 180° / los grados que digas |
-| paso a la izquierda · de lado a la derecha | Q / E (paso lateral, sin girar) |
-| caminar automático · automático · sigue recto · todo recto | Bloq Num |
-| **correr**: corre · correr · camina rápido · más rápido — **andar**: anda · andar · camina · caminar · despacio | Modo correr / modo andar (pulsa la tecla solo si cambia algo) |
-| pon el foco · focus / vuelve al foco / quita el foco / asiste al foco | `/focus` · `/target focus` · `/clearfocus` · `/assist focus` |
-| asiste | Objetivo de tu objetivo |
-| para · alto · quieto | Suelta todo y corta el caminar automático |
-| siguiente objetivo · objetivo amigo | Tab / objetivo aliado |
-| interactúa · siéntate · mapa · bolsas | Sus atajos |
-| lanza/usa/tira *nombre* · *nombre* · botón *tres* | La tecla del botón donde está ese hechizo, objeto o macro |
-| voz pausa · voz activa (activa la voz, empieza) | Deja de obedecer / vuelve a obedecer |
-| salta y gira a la derecha, luego adelante | Varias órdenes seguidas (hasta 3; si una no se entiende, ninguna) |
-| oye IA, *pregunta* | Se la pasa a WoW AI |
+| Key | Default | |
+|---|---|---|
+| `language` | `"auto"` | `"es"`, `"en"`, or the game's language |
+| `threshold` | `700` | Microphone level that counts as voice (`--calibrate` sets it) |
+| `microphone` / `inputDevice` | `"auto"` / `null` | `arecord` or `sounddevice`, and which input |
+| `turnDegrees` | `45` | A bare "left"/"right" |
+| `holdSeconds` / `maxHoldSeconds` | `1` / `5` | How long "forward" walks |
+| `jevMinConfidence` | `0.8` | How sure JEV must be |
+| `beeps` / `beepOnOrder` | `true` | Sounds |
+| `gameSwitch` | `true` | Follow the in-game ON/OFF button |
+| `learnCommand` | `claude -p --model opus --effort low` | The agent that reviews misses |
 
-Cualquier otra forma de decirlo pasa por JEV.
+## FAQ
 
-**Activar y desactivar:**
-- **En el juego:** el botón **Voz: ON / OFF** del addon (clic; Mayús + arrastrar para moverlo), `/wowvoz`, o un atajo en *Opciones > Atajos > WoW Voz*. El addon pinta un cuadrado de 8 píxeles en la esquina superior derecha (magenta = activo, cian = apagado) y wow-voz lo lee de la ventana del juego dos veces por segundo.
-- **Fuera:** `wow-voz-toggle`, para asignarlo a un atajo del escritorio.
-- **Por voz:** "voz pausa" / "voz activa".
+**Is this allowed?** Blizzard's rules forbid automation: bots, and one key press that does several actions. wow-voz is one spoken order = one key press, like key remapping or accessibility voice tools, but there's no official statement that allows it by name. Use it knowing that.
 
-**Pitidos** (por los altavoces del PC):
-- ascendente: al arrancar o al decir "voz activa";
-- descendente: al pausar;
-- dos graves: has dado una orden estando en pausa;
-- un tic: orden pulsada;
-- un zumbido: la orden no tiene tecla, o WoW no es la ventana activa.
+**"focus" does nothing.** Select a target first: the chat now says *"focus: no target"* if there's none. Forever has no focus frame, so the WoW Voz button shows *Focus: name* below it.
 
-**Seguros:**
-- Nada se pulsa si WoW no es la ventana activa.
-- Lo que se mantiene pulsado tiene un máximo de tiempo.
-- "Para" corta al instante lo que esté en marcha.
-- Mientras el botón **Hablar** de WoW AI está grabando, lo que dices es para la IA y no se toma como orden.
+**Nothing is pressed.** WoW must be the active window. The log says *"WoW is not the active window"* and you hear a buzz. On Linux, check that `/dev/uinput` is writable.
 
-## Uso
+**It hears me talking to someone else.** Say *"voice off"*, click the in-game button, or run `wow-voz-toggle` (Linux; bind it to a desktop shortcut). Ordinary speech rarely matches an order: JEV answers *none* for conversation.
+
+**Which WoW versions?** It's developed on WoW Forever (Interface 16001). The addon uses standard APIs, so on other versions enable *Load out of date AddOns*, or change the `## Interface:` line in `WoWVoz.toc`.
+
+**Can I add my language?** Yes: copy `wowvoz/lang/en.py` to `xx.py`, translate the phrases, set the [Vosk model](https://alphacephei.com/vosk/models) name, and add `"xx"` to `LANGUAGES` in `wowvoz/lang/__init__.py`. A pull request is very welcome.
+
+## Status
+
+| | Linux | Windows | macOS |
+|---|---|---|---|
+| Recognition, orders, JEV, learning | ✅ | ✅ | ✅ |
+| Keys | ✅ played daily | 🧪 unit-tested, needs real-world testing | 🧪 unit-tested, needs real-world testing |
+| In-game ON/OFF button | ✅ | 🧪 | 🧪 (needs Screen Recording) |
+
+If you try it on Windows or macOS, an issue saying whether it worked helps a lot.
+
+## Development
 
 ```bash
-cd ~/projects/programs/wow-voz
-P=~/.local/share/wow-ai-voice/bin/python
-$P -m wowvoz --keys            # qué tecla hace cada cosa (atajos del addon o por defecto)
-$P -m wowvoz --say "dale un salto"   # qué haría una frase, sin micrófono ni teclas
-$P -m wowvoz --dry-run         # escucha y dice qué pulsaría, sin pulsar
-$P -m wowvoz --calibrar        # mide el ruido y tu voz, y ajusta el umbral del micrófono
-$P -m wowvoz.learn             # aprender ahora de los fallos (lo mismo que el temporizador)
-$P -m wowvoz                   # a jugar
-systemctl --user start wow-voz # como servicio (arranca activo; "voz pausa" / "voz activa")
-journalctl --user -u wow-voz -f   # lo que oye y hace
+python -m unittest discover -s tests -v   # 39 tests, no microphone or game needed
+python -m wowvoz --dry-run                # listen, and print what it would press
+python -m wowvoz --keys                   # the key map it read from the addon
 ```
 
-Configuración: `~/.config/wow-voz/config.json`, sobre los valores de `wowvoz/config.py`. Por ejemplo, `threshold` (volumen mínimo que cuenta como voz), `holdSeconds`, `jevMinConfidence` o `startPaused`.
+## Credits
 
-## Instalación
+[Vosk](https://alphacephei.com/vosk/) (offline speech recognition) · JEV by TypeSafe, via [OpenRouter](https://openrouter.ai/) · the order phrases follow voice-control profiles players already use, like [SpecialEffect's GameAccess pack for WoW](https://gameaccess.info/how-to-play-world-of-warcraft-with-voice-controls-draft/) and VoiceAttack profiles.
 
-Usa el mismo entorno de Python que la voz de WoW AI (`~/.local/share/wow-ai-voice`, con faster-whisper), más Vosk y su modelo en español:
+Not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.
 
-```bash
-~/.local/share/wow-ai-voice/bin/pip install vosk
-cd ~/.local/share/wow-ai-voice && mkdir -p vosk && cd vosk
-curl -LO https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip && unzip vosk-model-small-es-0.42.zip
-cp -r addon/WoWVoz ".../World of Warcraft/_classic_beta_/Interface/AddOns/"   # y reinicia el juego
-cp systemd/wow-voz.service ~/.config/systemd/user/ && systemctl --user daemon-reload
-```
+## License
 
-`/dev/uinput` tiene que ser accesible para tu usuario. La regla de udev de Sunshine (`60-sunshine.rules`, `TAG+="uaccess"`) ya lo hace.
-
-La clave de JEV: `OPENROUTER_API_KEY`, o la línea `OPENROUTER_API_KEY=...` de `~/.config/rustic-os/openrouter.env`.
-
-## Límites
-
-- **El micrófono tiene que estar en el PC.** Moonlight no envía el micrófono del cliente.
-- **Las barras que cambian** (sigilo, formas, montura) cambian lo que hay en cada tecla. wow-voz pulsa la tecla del botón donde el addon vio ese hechizo por última vez.
-- **Los atajos que solo están en el mando o el ratón** no se pueden pulsar desde el teclado. Asígnales también una tecla en WoW.
-- **Las normas de Blizzard** prohíben la automatización (bots, una pulsación que hace varias acciones). wow-voz es una orden = una tecla, como remapear teclas o las herramientas de voz de accesibilidad, pero no hay un texto oficial que lo permita expresamente. Úsalo sabiéndolo.
-
-## Pruebas
-
-```bash
-~/.local/share/wow-ai-voice/bin/python -m unittest discover -s tests -v
-```
+[MIT](LICENSE)

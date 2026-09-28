@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="wow-voz: play World of Warcraft with your voice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0f1e"/>
+      <stop offset="1" stop-color="#1a2544"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#e0a526"/>
+    </linearGradient>
+    <linearGradient id="key" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c3a5e"/>
+      <stop offset="1" stop-color="#1c2640"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f5c542" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#f5c542" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="360" rx="24" fill="url(#bg)"/>
+  <g opacity="0.07" stroke="#9fb4ff" fill="none">
+    <path d="M0 300 C 240 250, 420 340, 640 290 S 1040 250, 1280 300"/>
+    <path d="M0 320 C 260 280, 460 360, 700 310 S 1080 280, 1280 320"/>
+  </g>
+
+  <!-- title -->
+  <text x="72" y="150" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#gold)">wow-voz</text>
+  <text x="76" y="202" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" fill="#e8ecf8">Play World of Warcraft with your voice</text>
+  <text x="76" y="242" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" fill="#9aa7c7">Juega a WoW con la voz · one order = one key press</text>
+
+  <!-- microphone -->
+  <circle cx="812" cy="175" r="92" fill="url(#glow)"/>
+  <rect x="787" y="112" width="50" height="86" rx="25" fill="url(#gold)"/>
+  <path d="M767 170 v10 a45 45 0 0 0 90 0 v-10" fill="none" stroke="#f5c542" stroke-width="7" stroke-linecap="round"/>
+  <path d="M812 226 v22 M790 250 h44" stroke="#f5c542" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- sound waves -->
+  <g fill="#f5c542">
+    <rect x="878" y="160" width="7" height="30" rx="3.5" opacity="0.9"/>
+    <rect x="893" y="146" width="7" height="58" rx="3.5" opacity="0.8"/>
+    <rect x="908" y="166" width="7" height="18" rx="3.5" opacity="0.7"/>
+    <rect x="923" y="138" width="7" height="74" rx="3.5" opacity="0.6"/>
+    <rect x="938" y="156" width="7" height="38" rx="3.5" opacity="0.5"/>
+  </g>
+  <path d="M958 175 h26 m-10 -9 l10 9 -10 9" stroke="#9aa7c7" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- keys -->
+  <g font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-weight="700" text-anchor="middle">
+    <g transform="translate(1004,96)">
+      <rect width="96" height="62" rx="10" fill="url(#key)" stroke="#51638f"/>
+      <text x="48" y="40" font-size="24" fill="#e8ecf8">TAB</text>
+    </g>
+    <g transform="translate(1110,96)">
+      <rect width="62" height="62" rx="10" fill="url(#key)" stroke="#51638f"/>
+      <text x="31" y="41" font-size="26" fill="#e8ecf8">W</text>
+    </g>
+    <g transform="translate(1182,96)">
+      <rect width="62" height="62" rx="10" fill="url(#key)" stroke="#51638f"/>
+      <text x="31" y="41" font-size="26" fill="#e8ecf8">1</text>
+    </g>
+    <g transform="translate(1004,172)">
+      <rect width="240" height="62" rx="10" fill="url(#key)" stroke="#f5c542" stroke-width="2"/>
+      <text x="120" y="40" font-size="24" fill="#ffe08a">SPACE</text>
+    </g>
+  </g>
+  <g font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="20" fill="#7f8db0" font-style="italic">
+    <text x="76" y="300">“jump twice” · “salta” · “next target” · “lanza bola de fuego” · “loot”</text>
+  </g>
+</svg>
