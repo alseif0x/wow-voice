@@ -183,6 +183,22 @@ class Actions:
             self.kb.hold(chord, secs, self.stop_event)
             if o.kind in ("forward", "back"):
                 self.autorun = False  # walking by hand ends autorun
+        elif how == "jumpmove":
+            jump = self.chord("JUMP")
+            if not jump:
+                self.log("no usable key for JUMP")
+                return
+            # Hold the direction, jump once it is moving, keep going until the landing.
+            done = threading.Event()
+
+            def hold_dir():
+                self.kb.hold(chord, float(c.get("jumpMoveSeconds", 0.9)), self.stop_event)
+                done.set()
+            t = threading.Thread(target=hold_dir, daemon=True)
+            t.start()
+            if not self.stop_event.wait(0.12):
+                self.kb.press(jump)
+            done.wait(3)
         elif how in ("walkmode", "runmode"):
             # One key toggles walk/run: press it only when it changes something.
             want_walk = how == "walkmode"

@@ -55,11 +55,16 @@ DEGREE_WORDS = {"diez": 10, "veinte": 20, "treinta": 30, "cuarenta y cinco": 45,
 
 # id -> (binding command or None, how it is done, Spanish phrases, JEV criteria)
 INTENTS = {
-    "jump":         ("JUMP", "tap", ["salta", "salto", "brinca"], "Jump (\"salta\", \"dale un salto\")."),
+    "jump":         ("JUMP", "tap", ["salta", "salto", "brinca"], "Jump in place (\"salta\", \"dale un salto\")."),
+    # Jumping while moving that way: the direction held a moment, the jump in the middle.
+    "jump_left":    ("STRAFELEFT", "jumpmove", ["salta a la izquierda", "salta izquierda", "salto a la izquierda"], "Jump sideways to the left (\"salta a la izquierda\")."),
+    "jump_right":   ("STRAFERIGHT", "jumpmove", ["salta a la derecha", "salta derecha", "salto a la derecha"], "Jump sideways to the right (\"salta a la derecha\")."),
+    "jump_forward": ("MOVEFORWARD", "jumpmove", ["salta adelante", "salta hacia adelante", "salto adelante"], "Jump forward (\"salta adelante\")."),
+    "jump_back":    ("MOVEBACKWARD", "jumpmove", ["salta atrás", "salta hacia atrás", "salto atrás"], "Jump backward (\"salta atrás\")."),
     "forward":      ("MOVEFORWARD", "hold", ["adelante", "avanza", "hacia adelante", "un paso adelante"], "Walk forward for a moment (\"adelante\", \"avanza un poco\")."),
     "back":         ("MOVEBACKWARD", "hold", ["atrás", "retrocede", "hacia atrás", "marcha atrás"], "Walk backward for a moment (\"atrás\", \"retrocede\")."),
-    "strafe_left":  ("STRAFELEFT", "hold", ["paso a la izquierda", "de lado a la izquierda", "lateral izquierda"], "Step sideways to the left, without turning (\"paso a la izquierda\")."),
-    "strafe_right": ("STRAFERIGHT", "hold", ["paso a la derecha", "de lado a la derecha", "lateral derecha"], "Step sideways to the right, without turning (\"paso a la derecha\")."),
+    "strafe_left":  ("STRAFELEFT", "hold", ["paso a la izquierda", "de lado a la izquierda", "lateral izquierda", "camina a la izquierda", "camina izquierda", "corre a la izquierda", "corre izquierda", "muévete a la izquierda", "ve a la izquierda"], "Step sideways to the left, without turning (\"paso a la izquierda\")."),
+    "strafe_right": ("STRAFERIGHT", "hold", ["paso a la derecha", "de lado a la derecha", "lateral derecha", "camina a la derecha", "camina derecha", "corre a la derecha", "corre derecha", "muévete a la derecha", "ve a la derecha"], "Step sideways to the right, without turning (\"paso a la derecha\")."),
     "turn_left":    ("TURNLEFT", "turn", [p for p, (d, _) in TURNS.items() if d == "left"], "Turn to the left, a little or a lot (\"izquierda\", \"gira a la izquierda\", \"media vuelta\")."),
     "turn_right":   ("TURNRIGHT", "turn", [p for p, (d, _) in TURNS.items() if d == "right"], "Turn to the right, a little or a lot (\"derecha\", \"gira a la derecha\")."),
     "turn_around":  ("TURNLEFT", "turn", AROUND, "Turn around to face the other way, 180 degrees, no side needed (\"media vuelta\", \"gira 180 grados\", \"gira totalmente\")."),
@@ -75,7 +80,7 @@ INTENTS = {
     "clear_focus":  ("WOWVOZ_CLEARFOCUS", "tap", ["quita el foco", "borra el foco", "sin foco", "limpia el foco"], "Clear the focus (\"quita el foco\")."),
     "assist_focus": ("WOWVOZ_ASSISTFOCUS", "tap", ["ayuda al foco", "asiste al foco", "objetivo del foco"], "Target what the focus is targeting (\"asiste al foco\")."),
     "assist":       ("ASSISTTARGET", "tap", ["asiste", "objetivo de mi objetivo"], "Assist: target what your target is targeting."),
-    "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso"], "Interact with the target: talk, loot, use (\"interactúa\")."),
+    "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso", "recoger", "recoge", "coge", "saquea", "saquear", "abre"], "Interact with the target: talk, loot, pick up, open (\"interactúa\", \"recoger\", \"saquea\")."),
     "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
     "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
     "bags":         ("TOGGLEBACKPACK", "tap", ["bolsas", "abre las bolsas", "mochila"], "Open or close the bags."),

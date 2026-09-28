@@ -30,6 +30,8 @@ class Parse(unittest.TestCase):
             "caminar automático": ("autorun", 1), "automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
             "camina lento": ("walk", 1), "a correr": ("run", 1),
+            "salta a la izquierda": ("jump_left", 1), "salta adelante": ("jump_forward", 1), "camina a la izquierda": ("strafe_left", 1),
+            "corre derecha": ("strafe_right", 1), "recoger": ("interact", 1), "saquea": ("interact", 1),
             "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "focus aliado": ("focus_friend", 1), "asiste": ("assist", 1),
             "vale, salta": ("jump", 1),
         }
@@ -123,6 +125,11 @@ def run_orders(orders, focus=True, cfg=None, keymap=None):
 
 
 class Doing(unittest.TestCase):
+    def test_jump_while_moving_holds_the_direction_and_jumps(self):
+        ev, _ = run_orders([C.Order("jump_left")], cfg={"jumpMoveSeconds": 0.2})
+        self.assertIn("hold", [e[0] for e in ev])
+        self.assertIn("press", [e[0] for e in ev])
+
     def test_walk_and_run_press_the_toggle_only_when_it_changes(self):
         ev, acts = run_orders([C.Order("walk"), C.Order("walk"), C.Order("run"), C.Order("run")])
         self.assertEqual(sum(1 for e in ev if e[0] == "press"), 2)
