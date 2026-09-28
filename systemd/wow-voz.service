@@ -1,0 +1,12 @@
+[Unit]
+Description=wow-voz: jugar a WoW guiado por la voz (pulsa las teclas que dices)
+After=pipewire.service graphical-session.target
+
+[Service]
+WorkingDirectory=%h/projects/programs/wow-voz
+ExecStart=%h/.local/share/wow-ai-voice/bin/python -m wowvoz --paused
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
