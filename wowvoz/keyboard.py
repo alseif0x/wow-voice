@@ -137,13 +137,19 @@ class Keyboard:
         os.write(self.fd, struct.pack("llHHi", 0, 0, etype, code, value))
 
     def _set(self, codes: list[int], value: int) -> None:
+        # One event report per key, with a moment between them: when a modifier
+        # and its key arrive in the same report, the desktop can apply the key
+        # before the modifier (Ctrl+Tab would land as Tab).
         with self.lock:
-            for c in (codes if value else reversed(codes)):
+            order = codes if value else list(reversed(codes))
+            for i, c in enumerate(order):
                 self._emit(EV_KEY, c, value)
+                self._emit(EV_SYN, SYN_REPORT, 0)
                 (self.down.add if value else self.down.discard)(c)
-            self._emit(EV_SYN, SYN_REPORT, 0)
+                if i + 1 < len(order):
+                    time.sleep(0.02)
 
-    def press(self, codes: list[int], tap: float = 0.04) -> None:
+    def press(self, codes: list[int], tap: float = 0.06) -> None:
         self._set(codes, 1)
         time.sleep(tap)
         self._set(codes, 0)
