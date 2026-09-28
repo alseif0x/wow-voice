@@ -54,7 +54,7 @@ class Recognizer:
     def ask_jev(self, text: str, via: str) -> C.Order | None:
         return self.jev_decision(text, via)[0]
 
-    def jev_decision(self, text: str, via: str) -> tuple[C.Order | None, bool]:
+    def jev_decision(self, text: str, via: str, min_conf: float | None = None) -> tuple[C.Order | None, bool]:
         """(order or None, sure): sure is True when JEV answered confidently,
         order or "none" alike, so there is no point asking Whisper."""
         body, opts = C.jev_request(text, self.buttons)
@@ -64,7 +64,7 @@ class Recognizer:
             return None, False
         a = ans.get("answers", {}).get("order", {})
         conf = float(a.get("confidence") or 0)
-        min_conf = float(self.cfg.get("jevMinConfidence", 0.8))
+        min_conf = float(min_conf if min_conf is not None else self.cfg.get("jevMinConfidence", 0.8))
         self.log(f"  jev: {a.get('choice')} {conf:.2f} ({ms} ms)")
         o = C.order_from_jev(ans, opts, text, min_conf)
         if o:
@@ -100,7 +100,8 @@ class Recognizer:
             w = self.whisper_text(pcm)
             heard["whisper"] = w
             if w and C.norm(w) != C.norm(f):
-                o = C.parse(w, self.buttons) or self.ask_jev(w, "whisper+jev")
+                # The last resort gets a stricter bar: a misheard phrase shouldn't move you.
+                o = C.parse(w, self.buttons) or self.jev_decision(w, "whisper+jev", float(self.cfg.get("jevMinConfidenceWhisper", 0.9)))[0]
                 if o:
                     if not o.via:
                         o.via = "whisper"
