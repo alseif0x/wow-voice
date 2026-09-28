@@ -92,12 +92,12 @@ AI_EXAMPLE = "oye IA, ¿qué misión hago?"
 NONE_EXAMPLES = ("para", "salta")
 HINT_EXAMPLE = ('gira de echa', 'gira a la derecha')
 
-# Never learned as an alias (wow-voz-learn): everyday words.
+# Never learned as an alias (wow-voice-learn): everyday words.
 NEVER_LEARN = {"hola", "si", "no", "vale", "bueno", "que", "eh", "ah", "oye", "venga", "gracias", "adios", "nada", "ya", "mira"}
 
 CALIBRATE = {
     "quiet": "Silencio unos segundos, sin hablar... (midiendo el ruido de la habitación)",
     "speak": 'Ahora di varias veces, a tu volumen normal: "salta", "adelante", "izquierda"...',
     "fail": "No distingo tu voz del ruido (ruido {noise:.0f}, voz {speech:.0f}). ¿El micrófono está silenciado o lejos?",
-    "done": "Ruido {noise:.0f}, voz {speech:.0f} -> umbral {threshold} guardado en {path}. Reinicia wow-voz para usarlo.",
+    "done": "Ruido {noise:.0f}, voz {speech:.0f} -> umbral {threshold} guardado en {path}. Reinicia wow-voice para usarlo.",
 }

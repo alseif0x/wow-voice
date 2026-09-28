@@ -7,7 +7,7 @@
      "oye IA ..." / "hey AI ..." (a question for WoW AI).
   3. Otherwise JEV reads the free transcript, with Vosk's closest order phrase
      as a hint about mishearing, and picks the order or none.
-  Not sure: nothing happens, and the miss is logged for wow-voz-learn.
+  Not sure: nothing happens, and the miss is logged for wow-voice-learn.
 """
 
 from __future__ import annotations

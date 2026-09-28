@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: WoW Voice
+## Notes: Tells the wow-voice voice control (a Linux program) which key does what: movement, targeting and action bar keys, and what is on each button. Reads only.
+## Author: Joe Gonzales
+## Version: 0.1.0
+## SavedVariables: WoWVoiceDB
+
+WoWVoice.lua

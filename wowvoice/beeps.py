@@ -41,7 +41,7 @@ class Beeps:
         self.on = bool(cfg.get("beeps", True))
         self.cmd = list(cfg.get("playCommand") or [])  # empty: this system's usual player
         self.system = current()
-        self.dir = os.path.expanduser("~/.cache/wow-voz")
+        self.dir = os.path.expanduser("~/.cache/wow-voice")
         self.last: dict[str, float] = {}
         os.makedirs(self.dir, exist_ok=True)
         for name, tones in TONES.items():

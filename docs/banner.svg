@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="wow-voz: play World of Warcraft with your voice">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="wow-voice: play World of Warcraft with your voice">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0a0f1e"/>
@@ -24,7 +24,7 @@
   </g>
 
   <!-- title -->
-  <text x="72" y="150" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#gold)">wow-voz</text>
+  <text x="72" y="150" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#gold)">wow-voice</text>
   <text x="76" y="202" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" fill="#e8ecf8">Play World of Warcraft with your voice</text>
   <text x="76" y="242" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" fill="#9aa7c7">Juega a WoW con la voz · one order = one key press</text>
 

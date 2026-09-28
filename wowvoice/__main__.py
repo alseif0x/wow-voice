@@ -1,13 +1,13 @@
-"""wow-voz: play WoW guided by your voice.
+"""wow-voice: play WoW guided by your voice.
 
-  python -m wowvoz              listen and play (keys go to WoW only while it has focus)
-  python -m wowvoz --dry-run    listen, but only print what it would press
-  python -m wowvoz --say TEXT   what TEXT would do (no microphone, nothing pressed)
-  python -m wowvoz --file X.wav what a 16 kHz mono recording would do
-  python -m wowvoz --keys       the key map it is using
-  python -m wowvoz --paused     start paused ("voz activa" / "voice on" to begin)
-  python -m wowvoz --calibrate  measure the room and your voice, and set the microphone threshold
-  python -m wowvoz --lang en    speak English (es, en; default: the game's language)
+  python -m wowvoice              listen and play (keys go to WoW only while it has focus)
+  python -m wowvoice --dry-run    listen, but only print what it would press
+  python -m wowvoice --say TEXT   what TEXT would do (no microphone, nothing pressed)
+  python -m wowvoice --file X.wav what a 16 kHz mono recording would do
+  python -m wowvoice --keys       the key map it is using
+  python -m wowvoice --paused     start paused ("voz activa" / "voice on" to begin)
+  python -m wowvoice --calibrate  measure the room and your voice, and set the microphone threshold
+  python -m wowvoice --lang en    speak English (es, en; default: the game's language)
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def calibrate(cfg: dict, path: str) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(prog="wow-voz", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(prog="wow-voice", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--say")
     ap.add_argument("--file")
@@ -130,6 +130,10 @@ def main() -> int:
             print(f"  {b.get('command') or '':22} {', '.join(b.get('keys') or []) or '(no key)':10} {b.get('name') or ''}")
         return 0
 
+    if not os.path.isfile(os.path.join(cfg["voskModel"], "conf", "model.conf")) and not os.path.isdir(os.path.join(cfg["voskModel"], "am")):
+        log(f"no Vosk model for {C.L.NAME} at {cfg['voskModel']}: run install.sh / install.ps1, "
+            "or set \"voskDir\" or \"voskModel\" in ~/.config/wow-voice/config.json")
+        return 2
     from .recognize import Recognizer
     rec = Recognizer(cfg, log)
     rec.set_buttons(keymap.named_buttons())
@@ -163,7 +167,7 @@ def main() -> int:
     misses = MissLog()
     focus = system.Focus(cfg["windowName"])
     acts = Actions(kb, keymap, xk, focus, cfg, log)
-    log(f"wow-voz listening, in {C.L.NAME}{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
+    log(f"wow-voice listening, in {C.L.NAME}{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
     beeps = Beeps(cfg)
     beeps.play("off" if acts.paused else "on")
@@ -177,7 +181,7 @@ def main() -> int:
         beeps.play("on" if on else "off")
         log(f"voice orders {'ON' if on else 'OFF'} ({why})")
 
-    # The in-game switch (the WoW Voz addon's button): followed whenever it changes.
+    # The in-game switch (the WoW Voice addon's button): followed whenever it changes.
     import threading
     if cfg.get("gameSwitch", True):
         def watch_switch():
@@ -199,10 +203,10 @@ def main() -> int:
                 time.sleep(0.5)
         threading.Thread(target=watch_switch, daemon=True).start()
 
-    # Outside the game: `wow-voz-toggle` (systemctl --user kill -s USR1 wow-voz; not on Windows).
+    # Outside the game: `wow-voice-toggle` (systemctl --user kill -s USR1 wow-voice; not on Windows).
     import signal
     if hasattr(signal, "SIGUSR1"):
-        signal.signal(signal.SIGUSR1, lambda *_: set_on(acts.paused, "wow-voz-toggle"))
+        signal.signal(signal.SIGUSR1, lambda *_: set_on(acts.paused, "wow-voice-toggle"))
     phrases = Phrases(float(cfg["threshold"]), int(cfg["silenceMs"]), int(cfg["maxPhraseMs"]))
     sv_mtime = 0.0
     last_check = 0.0

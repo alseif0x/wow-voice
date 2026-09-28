@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="WOWVOICE_TOGGLE" header="WOWVOICE" category="ADDONS">
+		WoWVoice_Toggle()
+	</Binding>
+</Bindings>

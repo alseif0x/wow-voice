@@ -97,5 +97,5 @@ CALIBRATE = {
     "quiet": "Quiet for a few seconds, don't speak... (measuring the room's noise)",
     "speak": 'Now say a few times, at your normal volume: "jump", "forward", "left"...',
     "fail": "I can't tell your voice from the noise (noise {noise:.0f}, voice {speech:.0f}). Is the microphone muted or far away?",
-    "done": "Noise {noise:.0f}, voice {speech:.0f} -> threshold {threshold} saved in {path}. Restart wow-voz to use it.",
+    "done": "Noise {noise:.0f}, voice {speech:.0f} -> threshold {threshold} saved in {path}. Restart wow-voice to use it.",
 }

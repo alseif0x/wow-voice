@@ -1,7 +1,7 @@
-"""What wow-voz knows about the game: which key does what, and whether WoW has focus.
+"""What wow-voice knows about the game: which key does what, and whether WoW has focus.
 
-The key map comes from the WoWVoz addon's saved data (WTF/Account/<account>/
-SavedVariables/WoWVoz.lua), written by the game on /reload and logout; without
+The key map comes from the WoWVoice addon's saved data (WTF/Account/<account>/
+SavedVariables/WoWVoice.lua), written by the game on /reload and logout; without
 it, WoW's default keys are assumed. Focus is the X window the desktop reports as
 active: keys are only ever pressed while it is WoW's.
 """
@@ -157,11 +157,11 @@ class KeyMap:
 
 def default_keymap() -> KeyMap:
     buttons = [{"slot": i + 1, "command": f"ACTIONBUTTON{i + 1}", "keys": [k]} for i, k in enumerate(DEFAULT_BAR_KEYS)]
-    return KeyMap(dict(DEFAULT_BINDINGS), buttons, "WoW defaults (the WoWVoz addon hasn't reported yet)")
+    return KeyMap(dict(DEFAULT_BINDINGS), buttons, "WoW defaults (the WoWVoice addon hasn't reported yet)")
 
 
 def find_saved_variables(wtf_glob: str | list[str]) -> list[str]:
-    """Every WoWVoz.lua the patterns find (one pattern, or a list: Lutris, Wine,
+    """Every WoWVoice.lua the patterns find (one pattern, or a list: Lutris, Wine,
     Steam...), the most recently written first."""
     patterns = [wtf_glob] if isinstance(wtf_glob, str) else list(wtf_glob)
     found = {p for pat in patterns for p in glob.glob(os.path.expanduser(pat))}
@@ -172,7 +172,7 @@ def load_keymap(wtf_glob: str | list[str]) -> KeyMap:
     for path in find_saved_variables(wtf_glob):
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
-                db = parse_lua(fh.read()).get("WoWVozDB") or {}
+                db = parse_lua(fh.read()).get("WoWVoiceDB") or {}
         except (OSError, ValueError, IndexError):
             continue
         cur = db.get("current")

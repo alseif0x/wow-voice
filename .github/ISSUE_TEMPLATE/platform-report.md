@@ -1,6 +1,6 @@
 ---
 name: Works on my system / Funciona en mi sistema
-about: Tell us how wow-voz did on your OS, game version and language
+about: Tell us how wow-voice did on your OS, game version and language
 title: "[report] <OS> / <WoW version> / <es|en>"
 labels: platform-report
 ---

@@ -1,8 +1,8 @@
-"""Language packs: everything wow-voz understands in one spoken language.
+"""Language packs: everything wow-voice understands in one spoken language.
 
 Each pack (es.py, en.py) has the order phrases, the number and turn words, the
 words that join several orders, the wake words for WoW AI, the Vosk model it
-needs, and the few lines wow-voz prints. `commands.set_language()` loads one.
+needs, and the few lines wow-voice prints. `commands.set_language()` loads one.
 A new language is one more file with the same names.
 """
 
@@ -21,7 +21,7 @@ def load(code: str):
 
 
 def pick(setting: str = "auto", game_locale: str = "", env: dict | None = None) -> str:
-    """"es" / "en" as configured; "auto" follows the game's language (the WoW Voz
+    """"es" / "en" as configured; "auto" follows the game's language (the WoW Voice
     addon saves it: esES, enUS...), then the desktop's ($LANG), then English."""
     if setting in LANGUAGES:
         return setting

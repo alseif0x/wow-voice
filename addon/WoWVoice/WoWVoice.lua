@@ -1,11 +1,11 @@
--- WoWVoz: tells the wow-voz voice control (a Linux program, outside the game)
+-- WoWVoice: tells the wow-voice voice control (a Linux program, outside the game)
 -- which key does what for this character: the key bound to moving, jumping,
 -- autorun, targeting and every action bar button, and the spell, item or macro
--- on each button. wow-voz reads it from this addon's saved data, which the game
+-- on each button. wow-voice reads it from this addon's saved data, which the game
 -- writes to disk on /reload and on logout.
 --
 -- It only reads. Nothing here moves the character or casts anything: that is
--- wow-voz pressing the same keys you would.
+-- wow-voice pressing the same keys you would.
 
 local ADDON = ...
 
@@ -19,9 +19,9 @@ local T = {
 	on = "Voice: ON", off = "Voice: OFF",
 	ordersOn = "voice orders ON", ordersOff = "voice orders OFF",
 	focusLabel = "Focus: %s", focusSaid = "focus: %s", noFocus = "no focus",
-	tip1 = "Click: turn voice orders on or off (wow-voz, outside the game, sees it within a second).",
-	tip2 = "Shift + drag: move. Also: /wowvoz, or a key in Options > Keybindings > WoW Voz.",
-	saved = "%d buttons with something on them and %d keys noted. /reload writes them to disk for wow-voz.",
+	tip1 = "Click: turn voice orders on or off (wow-voice, outside the game, sees it within a second).",
+	tip2 = "Shift + drag: move. Also: /wowvoice, or a key in Options > Keybindings > WoW Voice.",
+	saved = "%d buttons with something on them and %d keys noted. /reload writes them to disk for wow-voice.",
 }
 if (GetLocale and GetLocale() or ""):match("^es") then
 	T = {
@@ -33,13 +33,13 @@ if (GetLocale and GetLocale() or ""):match("^es") then
 		on = "Voz: ON", off = "Voz: OFF",
 		ordersOn = "órdenes de voz ACTIVADAS", ordersOff = "órdenes de voz DESACTIVADAS",
 		focusLabel = "Foco: %s", focusSaid = "foco: %s", noFocus = "sin foco",
-		tip1 = "Clic: activar o desactivar las órdenes de voz (wow-voz, fuera del juego, lo ve en menos de un segundo).",
-		tip2 = "Mayús + arrastrar: mover. También: /wowvoz, o un atajo en Opciones > Atajos > WoW Voz.",
-		saved = "%d botones con algo y %d teclas anotados. /reload los guarda en disco para wow-voz.",
+		tip1 = "Clic: activar o desactivar las órdenes de voz (wow-voice, fuera del juego, lo ve en menos de un segundo).",
+		tip2 = "Mayús + arrastrar: mover. También: /wowvoice, o un atajo en Opciones > Atajos > WoW Voice.",
+		saved = "%d botones con algo y %d teclas anotados. /reload los guarda en disco para wow-voice.",
 	}
 end
 
--- The binding commands wow-voz uses, besides the action bar buttons.
+-- The binding commands wow-voice uses, besides the action bar buttons.
 local COMMANDS = {
 	"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT",
 	"JUMP", "TOGGLEAUTORUN", "TOGGLERUN", "SITORSTAND", "TARGETNEARESTENEMY", "TARGETNEARESTFRIEND",
@@ -79,7 +79,7 @@ end
 -- Voice keys: things with no key of their own (focus has none by default, and
 -- Forever has no focus frame, but /focus works). Each is a secure macro button
 -- clicked through a key nobody uses, bound only for this session as an override
--- (never written into the player's bindings). wow-voz reads which key is which
+-- (never written into the player's bindings). wow-voice reads which key is which
 -- from the snapshot. A real key press runs them, so they work in combat too.
 ---------------------------------------------------------------------------
 
@@ -87,8 +87,8 @@ end
 -- there is none. Filled in further down, once the focus display exists.
 local focusAnnouncedAt = 0
 local function ReportFocus(id)
-	local P = "|cff66ccff[WoW Voz]|r "
-	if id == "WOWVOZ_FOCUS" and not UnitExists("target") then
+	local P = "|cff66ccff[WoW Voice]|r "
+	if id == "WOWVOICE_FOCUS" and not UnitExists("target") then
 		print(P .. T.noTarget)
 		return
 	end
@@ -104,14 +104,14 @@ local function ReportFocus(id)
 end
 
 local VOICE = {
-	{ id = "WOWVOZ_FOCUS", macro = "/focus" },
-	{ id = "WOWVOZ_TARGETFOCUS", macro = "/target focus" },
+	{ id = "WOWVOICE_FOCUS", macro = "/focus" },
+	{ id = "WOWVOICE_TARGETFOCUS", macro = "/target focus" },
 	-- The nearest friendly character as focus, then back to what was targeted.
-	{ id = "WOWVOZ_FOCUSFRIEND", macro = "/targetfriend\n/focus\n/targetlasttarget" },
-	{ id = "WOWVOZ_CLEARFOCUS", macro = "/clearfocus" },
-	{ id = "WOWVOZ_ASSISTFOCUS", macro = "/assist focus" },
+	{ id = "WOWVOICE_FOCUSFRIEND", macro = "/targetfriend\n/focus\n/targetlasttarget" },
+	{ id = "WOWVOICE_CLEARFOCUS", macro = "/clearfocus" },
+	{ id = "WOWVOICE_ASSISTFOCUS", macro = "/assist focus" },
 }
--- Game actions wow-voz may press that have no keyboard key (unbound, or only on
+-- Game actions wow-voice may press that have no keyboard key (unbound, or only on
 -- the mouse or the gamepad): they get a free key the same way, as a session
 -- override on the action itself. WOWAI_TALK is WoW AI's "Talk" ("oye IA ...").
 local NEEDS_KEY = {
@@ -130,7 +130,7 @@ end
 local function KeyboardKey(k)
 	return k and not k:find("BUTTON") and not k:find("^PAD") and not k:find("PAD%d") and not k:find("MOUSEWHEEL")
 end
-local voiceOwner = CreateFrame("Frame", "WoWVozKeys", UIParent)
+local voiceOwner = CreateFrame("Frame", "WoWVoiceKeys", UIParent)
 local voiceKeys = {}
 
 local settingUp = false -- our own overrides fire UPDATE_BINDINGS too; don't answer those
@@ -168,15 +168,15 @@ local function SetupVoiceKeys()
 		b:SetAttribute("type", "macro")
 		b:SetAttribute("macrotext", v.macro)
 		b:RegisterForClicks("AnyDown", "AnyUp")
-		if not b.wowvozHooked then
-			b.wowvozHooked = true
+		if not b.wowvoiceHooked then
+			b.wowvoiceHooked = true
 			-- Say what the voice order did, once per press.
 			b:HookScript("PostClick", function(_, _, down)
 				if down == false then return end
-				if v.id == "WOWVOZ_FOCUS" or v.id == "WOWVOZ_FOCUSFRIEND" then
+				if v.id == "WOWVOICE_FOCUS" or v.id == "WOWVOICE_FOCUSFRIEND" then
 					ReportFocus(v.id)
 				else
-					print("|cff66ccff[WoW Voz]|r " .. v.macro:gsub("\n", " ; "))
+					print("|cff66ccff[WoW Voice]|r " .. v.macro:gsub("\n", " ; "))
 				end
 			end)
 		end
@@ -190,7 +190,7 @@ local function SetupVoiceKeys()
 end
 
 local function Snapshot()
-	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
+	WoWVoiceDB = type(WoWVoiceDB) == "table" and WoWVoiceDB or {}
 	local d = { time = time(), character = (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?"), locale = Try(GetLocale), bindings = {}, buttons = {} }
 	for _, c in ipairs(COMMANDS) do
 		local keys = Keys(c)
@@ -216,14 +216,14 @@ local function Snapshot()
 	-- the last snapshot that had something on them rather than wiping it.
 	local named = 0
 	for _, b in ipairs(d.buttons) do if b.name then named = named + 1 end end
-	local prev = WoWVozDB.characters and WoWVozDB.characters[d.character]
+	local prev = WoWVoiceDB.characters and WoWVoiceDB.characters[d.character]
 	if named == 0 and prev and prev.named and prev.named > 0 then
 		d.buttons, named = prev.buttons, prev.named
 	end
 	d.named = named
-	WoWVozDB.current = d
-	WoWVozDB.characters = WoWVozDB.characters or {}
-	WoWVozDB.characters[d.character] = d
+	WoWVoiceDB.current = d
+	WoWVoiceDB.characters = WoWVoiceDB.characters or {}
+	WoWVoiceDB.characters[d.character] = d
 end
 
 local pending = false
@@ -245,12 +245,12 @@ pcall(f.RegisterEvent, f, "PLAYER_REGEN_ENABLED")
 -- and auto loot takes everything, since there's no mouse to pick items with.
 -- Once: if you turn them off again, they stay off.
 local function SetupLooting()
-	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
-	if WoWVozDB.lootSetup or InCombatLockdown() then return end
+	WoWVoiceDB = type(WoWVoiceDB) == "table" and WoWVoiceDB or {}
+	if WoWVoiceDB.lootSetup or InCombatLockdown() then return end
 	if (tonumber(Try(GetCVar, "SoftTargetInteract")) or 3) < 3 then pcall(SetCVar, "SoftTargetInteract", "3") end
 	pcall(SetCVar, "autoLootDefault", "1")
-	WoWVozDB.lootSetup = true
-	print("|cff66ccff[WoW Voz]|r " .. T.loot:format(tostring(Try(GetCVar, "autoLootDefault")), tostring(Try(GetCVar, "SoftTargetInteract"))))
+	WoWVoiceDB.lootSetup = true
+	print("|cff66ccff[WoW Voice]|r " .. T.loot:format(tostring(Try(GetCVar, "autoLootDefault")), tostring(Try(GetCVar, "SoftTargetInteract"))))
 end
 
 local keysReady = false
@@ -265,19 +265,19 @@ f:SetScript("OnEvent", function(_, event)
 end)
 
 ---------------------------------------------------------------------------
--- On / off: a button, a key binding and /wowvoz. wow-voz can't hear the addon,
+-- On / off: a button, a key binding and /wowvoice. wow-voice can't hear the addon,
 -- so the state is shown to it as a tiny square in the top-right corner of the
 -- screen (magenta = on, cyan = off; pure colours survive any gamma), which it
 -- reads off the game window twice a second.
 ---------------------------------------------------------------------------
 
-_G.BINDING_HEADER_WOWVOZ = "WoW Voz"
-_G.BINDING_NAME_WOWVOZ_TOGGLE = T.bindingToggle
+_G.BINDING_HEADER_WOWVOICE = "WoW Voice"
+_G.BINDING_NAME_WOWVOICE_TOGGLE = T.bindingToggle
 
 local marker, button
 
 local function Enabled()
-	return not (WoWVozDB and WoWVozDB.enabled == false)
+	return not (WoWVoiceDB and WoWVoiceDB.enabled == false)
 end
 
 local function Paint()
@@ -292,12 +292,12 @@ local function Paint()
 	end
 end
 
-function WoWVoz_Toggle(state)
-	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
+function WoWVoice_Toggle(state)
+	WoWVoiceDB = type(WoWVoiceDB) == "table" and WoWVoiceDB or {}
 	if state == nil then state = not Enabled() end
-	WoWVozDB.enabled = state and true or false
+	WoWVoiceDB.enabled = state and true or false
 	Paint()
-	print("|cff66ccff[WoW Voz]|r " .. (state and T.ordersOn or T.ordersOff))
+	print("|cff66ccff[WoW Voice]|r " .. (state and T.ordersOn or T.ordersOff))
 end
 
 -- Forever has no focus frame: show the focus's name under the button, and say
@@ -310,13 +310,13 @@ local function ShowFocus(announce)
 	end
 	if announce then
 		focusAnnouncedAt = GetTime()
-		print("|cff66ccff[WoW Voz]|r " .. (name and T.focusSaid:format(name) or T.noFocus))
+		print("|cff66ccff[WoW Voice]|r " .. (name and T.focusSaid:format(name) or T.noFocus))
 	end
 end
 
 local function Build()
 	-- The marker: 8x8 real pixels (the frame is scaled so one UI unit is one pixel).
-	marker = CreateFrame("Frame", "WoWVozMarker", UIParent)
+	marker = CreateFrame("Frame", "WoWVoiceMarker", UIParent)
 	marker:SetFrameStrata("TOOLTIP")
 	local _, h = GetPhysicalScreenSize()
 	-- One UI unit = one physical pixel, as WoW AI's strip does (Blizzard's PixelUtil).
@@ -327,9 +327,9 @@ local function Build()
 	marker.tex = marker:CreateTexture(nil, "OVERLAY")
 	marker.tex:SetAllPoints()
 
-	button = CreateFrame("Button", "WoWVozButton", UIParent, "BackdropTemplate")
+	button = CreateFrame("Button", "WoWVoiceButton", UIParent, "BackdropTemplate")
 	button:SetSize(86, 24)
-	local s = WoWVozDB and WoWVozDB.button
+	local s = WoWVoiceDB and WoWVoiceDB.button
 	if s and s.point then button:SetPoint(s.point, UIParent, s.point, s.x or 0, s.y or 0)
 	else button:SetPoint("TOP", UIParent, "TOP", 180, -8) end
 	button:SetBackdrop({
@@ -348,18 +348,18 @@ local function Build()
 	button:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		local point, _, _, x, y = self:GetPoint()
-		WoWVozDB.button = { point = point, x = x, y = y }
+		WoWVoiceDB.button = { point = point, x = x, y = y }
 	end)
-	button:SetScript("OnClick", function() WoWVoz_Toggle() end)
+	button:SetScript("OnClick", function() WoWVoice_Toggle() end)
 	button:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-		GameTooltip:SetText("WoW Voz")
+		GameTooltip:SetText("WoW Voice")
 		GameTooltip:AddLine(T.tip1, 0.8, 0.8, 0.8, true)
 		GameTooltip:AddLine(T.tip2, 0.6, 0.6, 0.6, true)
 		GameTooltip:Show()
 	end)
 	button:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	if WoWVozDB and WoWVozDB.hideButton then button:Hide() end
+	if WoWVoiceDB and WoWVoiceDB.hideButton then button:Hide() end
 	focusText = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	focusText:SetPoint("TOP", button, "BOTTOM", 0, -2)
 	Paint()
@@ -371,29 +371,30 @@ ui:RegisterEvent("PLAYER_LOGIN")
 pcall(ui.RegisterEvent, ui, "PLAYER_FOCUS_CHANGED")
 ui:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_FOCUS_CHANGED" then ShowFocus(true) return end
-	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
+	WoWVoiceDB = type(WoWVoiceDB) == "table" and WoWVoiceDB or {}
 	Build()
 end)
 
-SLASH_WOWVOZ1 = "/wowvoz"
-SlashCmdList["WOWVOZ"] = function(msg)
+SLASH_WOWVOICE1 = "/wowvoice"
+SLASH_WOWVOICE2 = "/wowvoz"
+SlashCmdList["WOWVOICE"] = function(msg)
 	msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-	if msg == "on" or msg == "activar" then WoWVoz_Toggle(true)
-	elseif msg == "off" or msg == "desactivar" then WoWVoz_Toggle(false)
+	if msg == "on" or msg == "activar" then WoWVoice_Toggle(true)
+	elseif msg == "off" or msg == "desactivar" then WoWVoice_Toggle(false)
 	elseif msg == "boton" or msg == "botón" or msg == "button" then
-		WoWVozDB.hideButton = not WoWVozDB.hideButton
-		if button then button:SetShown(not WoWVozDB.hideButton) end
+		WoWVoiceDB.hideButton = not WoWVoiceDB.hideButton
+		if button then button:SetShown(not WoWVoiceDB.hideButton) end
 	elseif msg == "teclas" or msg == "keys" then
 		for id, key in pairs(voiceKeys) do
-			print("|cff66ccff[WoW Voz]|r " .. key .. " -> " .. id .. "  (" .. tostring(Try(GetBindingAction, key)) .. ")")
+			print("|cff66ccff[WoW Voice]|r " .. key .. " -> " .. id .. "  (" .. tostring(Try(GetBindingAction, key)) .. ")")
 		end
 	elseif msg == "guardar" or msg == "datos" or msg == "save" then
 		Snapshot()
-		local d = WoWVozDB.current
+		local d = WoWVoiceDB.current
 		local n = 0
 		for _, b in ipairs(d.buttons) do if b.name then n = n + 1 end end
-		print("|cff66ccff[WoW Voz]|r " .. T.saved:format(n, #d.buttons))
+		print("|cff66ccff[WoW Voice]|r " .. T.saved:format(n, #d.buttons))
 	else
-		WoWVoz_Toggle()
+		WoWVoice_Toggle()
 	end
 end

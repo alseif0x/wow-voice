@@ -7,12 +7,12 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from wowvoz import commands as C  # noqa: E402
-from wowvoz import lang  # noqa: E402
-from wowvoz.actions import Actions  # noqa: E402
-from wowvoz.game import KeyMap, default_keymap, load_keymap, parse_lua  # noqa: E402
-from wowvoz.keyboard import DryKeyboard, Unsupported, keysym_for, split_binding  # noqa: E402
-from wowvoz.listen import FRAME_BYTES, Phrases  # noqa: E402
+from wowvoice import commands as C  # noqa: E402
+from wowvoice import lang  # noqa: E402
+from wowvoice.actions import Actions  # noqa: E402
+from wowvoice.game import KeyMap, default_keymap, load_keymap, parse_lua  # noqa: E402
+from wowvoice.keyboard import DryKeyboard, Unsupported, keysym_for, split_binding  # noqa: E402
+from wowvoice.listen import FRAME_BYTES, Phrases  # noqa: E402
 
 BUTTONS = [
     {"slot": 1, "command": "ACTIONBUTTON1", "keys": ["1"], "kind": "spell", "id": 133, "name": "Bola de Fuego"},
@@ -142,7 +142,7 @@ class English(unittest.TestCase):
             self.assertIsNotNone(C.parse(p, EN_BUTTONS), p)
 
     def test_ask_ai_needs_a_wake_word(self):
-        from wowvoz.recognize import ask_ai_question
+        from wowvoice.recognize import ask_ai_question
         self.assertEqual(ask_ai_question("hey ai what quest should i do"), "what quest should i do")
         self.assertEqual(ask_ai_question("ask the ai where is the vendor"), "where is the vendor")
         self.assertIsNone(ask_ai_question("i think we should go left"))
@@ -295,7 +295,7 @@ class Keys(unittest.TestCase):
 
 class SavedVariables(unittest.TestCase):
     SV = '''
-WoWVozDB = {
+WoWVoiceDB = {
 ["current"] = {
 ["character"] = "Aria-Reino de Prueba",
 ["time"] = 1790610000,
@@ -325,10 +325,10 @@ WoWVozDB = {
 '''
 
     def test_reads_the_addon_data(self):
-        d = parse_lua(self.SV)["WoWVozDB"]["current"]
+        d = parse_lua(self.SV)["WoWVoiceDB"]["current"]
         self.assertEqual(d["bindings"]["JUMP"][2], "MOUSEWHEELDOWN")
         with tempfile.TemporaryDirectory() as tmp:
-            p = os.path.join(tmp, "WoWVoz.lua")
+            p = os.path.join(tmp, "WoWVoice.lua")
             open(p, "w").write(self.SV)
             km = load_keymap(os.path.join(tmp, "*.lua"))
             self.assertEqual(km.character, "Aria-Reino de Prueba")
@@ -369,7 +369,7 @@ class Combined(unittest.TestCase):
 
 class AliasesAndLearning(unittest.TestCase):
     def test_aliases_resolve_and_are_checked(self):
-        from wowvoz.aliases import Aliases
+        from wowvoice.aliases import Aliases
         with tempfile.TemporaryDirectory() as tmp:
             user, learned = os.path.join(tmp, "a.json"), os.path.join(tmp, "l.json")
             with open(user, "w") as f:
@@ -385,7 +385,7 @@ class AliasesAndLearning(unittest.TestCase):
             self.assertFalse(a.refresh(), "unchanged files are not reread")
 
     def test_ask_ai(self):
-        from wowvoz.recognize import ask_ai_question
+        from wowvoice.recognize import ask_ai_question
         self.assertEqual(ask_ai_question("oye ia qué misión hago"), "que mision hago")
         self.assertEqual(ask_ai_question("pregúntale a la ia cuánto oro tengo"), "cuanto oro tengo")
         self.assertIsNone(ask_ai_question("ya"))
@@ -399,7 +399,7 @@ class AliasesAndLearning(unittest.TestCase):
         self.assertNotIn("closest_order_phrase", C.jev_request("x", BUTTONS)[0]["state"])
 
     def test_learning_needs_evidence(self):
-        from wowvoz import learn as Lr
+        from wowvoice import learn as Lr
         lines = [
             {"type": "miss", "free": "quieres pierda", "grammar": "izquierda", "jev": {"choice": "turn_left", "confidence": 0.5}},
             {"type": "follow", "miss": "quieres pierda", "order": "turn_left", "said": "izquierda"},
@@ -417,7 +417,7 @@ class AliasesAndLearning(unittest.TestCase):
         self.assertIn("not an order", Lr.acceptable("quieres pierda", "run_lua", ev, BUTTONS, taken))
 
     def test_miss_log_pairs_a_miss_with_the_order_right_after(self):
-        from wowvoz.learn import MissLog
+        from wowvoice.learn import MissLog
         with tempfile.TemporaryDirectory() as tmp:
             log = MissLog(os.path.join(tmp, "m.jsonl"))
             log.miss({"free": "quieres pierda", "grammar": "izquierda"})
@@ -434,8 +434,8 @@ class OtherSystems(unittest.TestCase):
     """Windows and macOS key handling, against stand-ins for their system calls."""
 
     def test_windows_layout_modifiers_and_order(self):
-        from wowvoz.keyboard import resolve
-        from wowvoz.platforms import windows as W
+        from wowvoice.keyboard import resolve
+        from wowvoice.platforms import windows as W
 
         class User32:
             sent = []
@@ -466,8 +466,8 @@ class OtherSystems(unittest.TestCase):
             resolve("PAD1", km)
 
     def test_macos_keys_carry_the_held_modifiers(self):
-        from wowvoz.keyboard import resolve
-        from wowvoz.platforms import macos as M
+        from wowvoice.keyboard import resolve
+        from wowvoice.platforms import macos as M
 
         class Quartz:
             events = []
@@ -496,7 +496,7 @@ class OtherSystems(unittest.TestCase):
         self.assertEqual(resolve("W", km), [(0x0D, 0)])
 
     def test_system_by_platform(self):
-        from wowvoz import platforms
+        from wowvoice import platforms
         self.assertIn(platforms.name(), ("linux", "windows", "macos"))
 
 

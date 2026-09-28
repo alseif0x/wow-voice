@@ -108,7 +108,7 @@ class Actions:
         key; the bridge takes this audio instead of recording (docs in its voice.js)."""
         chord = self.chord("WOWAI_TALK")
         if not chord:
-            self.log("WoW AI's Talk has no key (is WoW AI loaded, and the WoW Voz addon up to date?)")
+            self.log("WoW AI's Talk has no key (is WoW AI loaded, and the WoW Voice addon up to date?)")
             self.notify("error")
             return
         path = os.path.expanduser(self.cfg.get("wowAiHandoff", "~/.cache/wow-ai/voice-in.wav"))
@@ -161,7 +161,7 @@ class Actions:
         command, how, _, _ = INTENTS[o.kind]
         chord = self.chord(command) if command else None
         if not chord:
-            self.log(f"no usable key for {command} (bind it to a keyboard key in WoW, or /reload with the WoW Voz addon)")
+            self.log(f"no usable key for {command} (bind it to a keyboard key in WoW, or /reload with the WoW Voice addon)")
             self.notify("error")
             return
         if not self._focused():

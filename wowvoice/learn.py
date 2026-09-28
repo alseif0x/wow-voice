@@ -1,11 +1,11 @@
 """Learning from misses: what was said, what it turned out to mean.
 
-wow-voz appends every phrase it didn't act on to misses.jsonl, and when an order
+wow-voice appends every phrase it didn't act on to misses.jsonl, and when an order
 does work within a few seconds of a miss, that order too (people repeat
-themselves: "quieres pierda" ... "izquierda"). `python -m wowvoz.learn` (the
-wow-voz-learn timer, hourly) reads what is new, asks an agent (Claude or Codex,
+themselves: "quieres pierda" ... "izquierda"). `python -m wowvoice.learn` (the
+wow-voice-learn timer, hourly) reads what is new, asks an agent (Claude or Codex,
 headless) which misses clearly meant which order, checks every proposal itself,
-and adds the good ones to learned.json, which wow-voz picks up on its own.
+and adds the good ones to learned.json, which wow-voice picks up on its own.
 
 Nothing is added on the agent's word alone: an alias needs a miss followed by
 that order, twice, or once plus JEV having guessed the same order. Common words
@@ -26,13 +26,13 @@ from . import lang
 from .aliases import LEARNED_FILE, USER_FILE, _read, valid
 from .game import load_keymap
 
-MISSES = os.path.expanduser("~/.cache/wow-voz/misses.jsonl")
-LOG = os.path.expanduser("~/.cache/wow-voz/learn.log")
+MISSES = os.path.expanduser("~/.cache/wow-voice/misses.jsonl")
+LOG = os.path.expanduser("~/.cache/wow-voice/learn.log")
 FOLLOW_SECONDS = 6.0
 
 
 class MissLog:
-    """Used by wow-voz while it runs."""
+    """Used by wow-voice while it runs."""
 
     def __init__(self, path: str = MISSES):
         self.path = path

@@ -1,5 +1,5 @@
-# wow-voz installer for Windows: a Python venv with Vosk and sounddevice, the Vosk
-# models, the WoW Voz addon, and a wow-voz.cmd to start it. Safe to run again.
+# wow-voice installer for Windows: a Python venv with Vosk and sounddevice, the Vosk
+# models, the WoW Voice addon, and a wow-voice.cmd to start it. Safe to run again.
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Lang en
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # Invoke-WebRequest is much faster without the bar
 
 $Repo = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Data = if ($env:WOWVOZ_HOME) { $env:WOWVOZ_HOME } else { Join-Path $env:LOCALAPPDATA "wow-voz" }
+$Data = if ($env:WOWVOICE_HOME) { $env:WOWVOICE_HOME } else { Join-Path $env:LOCALAPPDATA "wow-voice" }
 function Say($m) { Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m) { Write-Host "!!  $m" -ForegroundColor Yellow }
 
@@ -62,23 +62,23 @@ if (-not $AddOns) {
     }
     if ($found.Count -eq 1) { $AddOns = $found[0] }
     elseif ($found.Count -gt 1) { Warn "several WoW installs; pick one with -AddOns:"; $found | ForEach-Object { Write-Host "     $_" } }
-    else { Warn "WoW's AddOns folder not found; copy addon\WoWVoz there yourself, or use -AddOns" }
+    else { Warn "WoW's AddOns folder not found; copy addon\WoWVoice there yourself, or use -AddOns" }
 }
 if ($AddOns) {
-    Say "Addon WoW Voz -> $AddOns"
+    Say "Addon WoW Voice -> $AddOns"
     New-Item -ItemType Directory -Force -Path $AddOns | Out-Null
-    Copy-Item -Recurse -Force (Join-Path $Repo "addon\WoWVoz") $AddOns
+    Copy-Item -Recurse -Force (Join-Path $Repo "addon\WoWVoice") $AddOns
     Write-Host "   Restart the game (a new addon is only found at start), then /reload once in game."
 }
 
 # 5. A command to start it.
-$cmd = Join-Path $Data "wow-voz.cmd"
-Set-Content -Path $cmd -Encoding ASCII -Value "@echo off`r`ncd /d `"$Repo`"`r`n`"$vpy`" -m wowvoz %*`r`n"
+$cmd = Join-Path $Data "wow-voice.cmd"
+Set-Content -Path $cmd -Encoding ASCII -Value "@echo off`r`ncd /d `"$Repo`"`r`n`"$vpy`" -m wowvoice %*`r`n"
 
 Write-Host ""
 Say "Done."
 Write-Host "   Start:        $cmd          (keep the window open while you play)"
 Write-Host "   Try a phrase: $cmd --say `"jump twice`" --lang en"
 Write-Host "   Microphone:   Settings > Privacy & security > Microphone > let desktop apps use it."
-Write-Host "   If WoW runs as administrator, run wow-voz as administrator too (Windows blocks keys otherwise)."
-Write-Host "   Optional:     JEV (understands free phrasing): OPENROUTER_API_KEY=... in $env:USERPROFILE\.config\wow-voz\openrouter.env"
+Write-Host "   If WoW runs as administrator, run wow-voice as administrator too (Windows blocks keys otherwise)."
+Write-Host "   Optional:     JEV (understands free phrasing): OPENROUTER_API_KEY=... in $env:USERPROFILE\.config\wow-voice\openrouter.env"

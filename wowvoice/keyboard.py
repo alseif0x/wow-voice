@@ -1,4 +1,4 @@
-"""A virtual keyboard: the keys wow-voz presses, as if typed on a real one.
+"""A virtual keyboard: the keys wow-voice presses, as if typed on a real one.
 
 This is the Linux one (Windows and macOS: platforms/windows.py, platforms/macos.py,
 same interface). It creates a keyboard device through /dev/uinput. The desktop sees it as one
@@ -132,7 +132,7 @@ def resolve(key: str, keymap) -> list:
 class Keyboard:
     """The uinput device. press() taps a chord; hold() keeps it down, interruptible."""
 
-    def __init__(self, name: str = "wow-voz keyboard"):
+    def __init__(self, name: str = "wow-voice keyboard"):
         self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_KEY)
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_SYN)

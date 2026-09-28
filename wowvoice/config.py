@@ -1,4 +1,4 @@
-"""Settings: these defaults, overridden by ~/.config/wow-voz/config.json."""
+"""Settings: these defaults, overridden by ~/.config/wow-voice/config.json."""
 
 from __future__ import annotations
 
@@ -8,16 +8,16 @@ import sys
 
 # The venv and the Vosk models (where install.sh / install.ps1 put them).
 if sys.platform.startswith("win"):
-    _DATA = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "wow-voz")
+    _DATA = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "wow-voice")
 elif sys.platform == "darwin":
-    _DATA = os.path.expanduser("~/Library/Application Support/wow-voz")
+    _DATA = os.path.expanduser("~/Library/Application Support/wow-voice")
 else:
-    _DATA = os.path.expanduser("~/.local/share/wow-voz")
-HOME = os.environ.get("WOWVOZ_HOME") or _DATA
-CONFIG_FILE = os.path.expanduser("~/.config/wow-voz/config.json")
+    _DATA = os.path.expanduser("~/.local/share/wow-voice")
+HOME = os.environ.get("WOWVOICE_HOME") or _DATA
+CONFIG_FILE = os.path.expanduser("~/.config/wow-voice/config.json")
 
-# Where the game keeps the WoW Voz addon's notes (the most recent one found is used).
-_WOW = "drive_c/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua"
+# Where the game keeps the WoW Voice addon's notes (the most recent one found is used).
+_WOW = "drive_c/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoice.lua"
 SAVED_VARIABLES = [
     f"~/Games/*/{_WOW}",                                     # Lutris (Battle.net prefix)
     f"~/.wine/{_WOW}",                                       # plain Wine
@@ -25,9 +25,9 @@ SAVED_VARIABLES = [
     f"~/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
     f"~/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
     # Windows and macOS: the game's own install
-    "C:/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
-    "C:/Program Files/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
-    "/Applications/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
+    "C:/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoice.lua",
+    "C:/Program Files/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoice.lua",
+    "/Applications/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoice.lua",
 ]
 
 DEFAULTS = {
@@ -37,7 +37,7 @@ DEFAULTS = {
     "voskDir": os.path.join(HOME, "vosk"),
     "voskModel": "",
     # JEV (optional): OPENROUTER_API_KEY, or a file with an OPENROUTER_API_KEY=... line.
-    "jevKeyFile": "~/.config/wow-voz/openrouter.env",
+    "jevKeyFile": "~/.config/wow-voice/openrouter.env",
     "jevTimeout": 2.5,
     "jevMinConfidence": 0.8,
     "nearMatch": 0.75,  # how alike Vosk's closed-list guess and its free transcript must sound
@@ -66,13 +66,13 @@ DEFAULTS = {
     "beepOnOrder": True,  # a tick when an order is pressed, a low buzz when it can't be
     # "oye IA ...": the phrase audio is left here for WoW AI's bridge, then its Talk key is pressed.
     "wowAiHandoff": "~/.cache/wow-ai/voice-in.wav",
-    # wow-voz-learn: the agent that reviews misses (text in, JSON out; no tools needed).
+    # wow-voice-learn: the agent that reviews misses (text in, JSON out; no tools needed).
     "learnCommand": ["claude", "-p", "--model", "opus", "--effort", "low"],  # or e.g. ["ocx", "claude", "-p", "--model", "gpt-6-sol"]
     "learnTimeout": 240,
-    # Follow the WoW Voz addon's on/off button (a marker in the game's top-right corner).
+    # Follow the WoW Voice addon's on/off button (a marker in the game's top-right corner).
     "gameSwitch": True,
     "playCommand": [],  # empty: pw-play / paplay / aplay on Linux, winsound on Windows, afplay on macOS
-    "log": "~/.cache/wow-voz/wow-voz.log",
+    "log": "~/.cache/wow-voice/wow-voice.log",
 }
 
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Switch wow-voice's voice orders on or off (for a desktop keyboard shortcut).
+exec systemctl --user kill -s USR1 wow-voice

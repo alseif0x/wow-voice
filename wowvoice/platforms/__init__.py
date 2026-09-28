@@ -6,7 +6,7 @@ Each module (linux.py, windows.py, macos.py) gives:
   Keymap()           WoW key names -> this system's key codes (code_for, modifier)
   Keyboard()         press / hold / release_all / close, with those codes
   Focus(pattern)     game_focused(): is the active window WoW's?
-  Switch(title)      read(): the WoW Voz addon's on/off marker (True / False / None);
+  Switch(title)      read(): the WoW Voice addon's on/off marker (True / False / None);
                      raises OSError where it can't be read
   play(path)         play a short WAV file, without waiting
 

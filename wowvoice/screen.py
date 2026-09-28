@@ -1,4 +1,4 @@
-"""The WoW Voz addon's on/off switch, read off the game window.
+"""The WoW Voice addon's on/off switch, read off the game window.
 
 The addon paints an 8x8 pixel square in the top-right corner: magenta when voice
 orders are on, cyan when off. This reads a 16x16 corner of the game window

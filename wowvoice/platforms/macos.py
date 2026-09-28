@@ -2,7 +2,7 @@
 marker read with a window capture, and afplay for beeps.
 
 Keys need the Accessibility permission for the terminal or Python that runs
-wow-voz (System Settings > Privacy & Security > Accessibility); the in-game
+wow-voice (System Settings > Privacy & Security > Accessibility); the in-game
 on/off button needs Screen Recording too. Key codes are the physical ANSI (US)
 positions: on other layouts, letters and digits are where WoW expects them, but
 a binding on a symbol key ("-", "=") may not be.

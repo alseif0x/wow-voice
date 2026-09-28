@@ -1,9 +1,9 @@
-"""Your own words for things, and the ones wow-voz learned from its misses.
+"""Your own words for things, and the ones wow-voice learned from its misses.
 
 Two files, same format, both reloaded when they change:
 
-  ~/.config/wow-voz/aliases.json   yours, edited by hand
-  ~/.config/wow-voz/learned.json   written by wow-voz-learn (the log reviewer)
+  ~/.config/wow-voice/aliases.json   yours, edited by hand
+  ~/.config/wow-voice/learned.json   written by wow-voice-learn (the log reviewer)
 
     {
       "evis": "button:Eviscerar",
@@ -23,8 +23,8 @@ import os
 
 from . import commands as C
 
-USER_FILE = os.path.expanduser("~/.config/wow-voz/aliases.json")
-LEARNED_FILE = os.path.expanduser("~/.config/wow-voz/learned.json")
+USER_FILE = os.path.expanduser("~/.config/wow-voice/aliases.json")
+LEARNED_FILE = os.path.expanduser("~/.config/wow-voice/learned.json")
 
 
 def _read(path: str) -> dict:
