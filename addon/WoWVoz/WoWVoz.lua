@@ -64,6 +64,15 @@ local function Snapshot()
 			end
 		end
 	end
+	-- The bars can read empty for a moment (loading screens, logging out): keep
+	-- the last snapshot that had something on them rather than wiping it.
+	local named = 0
+	for _, b in ipairs(d.buttons) do if b.name then named = named + 1 end end
+	local prev = WoWVozDB.characters and WoWVozDB.characters[d.character]
+	if named == 0 and prev and prev.named and prev.named > 0 then
+		d.buttons, named = prev.buttons, prev.named
+	end
+	d.named = named
 	WoWVozDB.current = d
 	WoWVozDB.characters = WoWVozDB.characters or {}
 	WoWVozDB.characters[d.character] = d
@@ -77,12 +86,12 @@ local function Soon()
 end
 
 local f = CreateFrame("Frame")
-for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "ACTIONBAR_SLOT_CHANGED", "UPDATE_BINDINGS", "PLAYER_LOGOUT" }) do
+-- Not on PLAYER_LOGOUT: by then the bars read empty. The snapshot taken while
+-- playing is what the game writes to disk.
+for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "ACTIONBAR_SLOT_CHANGED", "UPDATE_BINDINGS", "SPELLS_CHANGED" }) do
 	pcall(f.RegisterEvent, f, e)
 end
-f:SetScript("OnEvent", function(_, event)
-	if event == "PLAYER_LOGOUT" then Snapshot() else Soon() end
-end)
+f:SetScript("OnEvent", function() Soon() end)
 
 ---------------------------------------------------------------------------
 -- On / off: a button, a key binding and /wowvoz. wow-voz can't hear the addon,
