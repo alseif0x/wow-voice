@@ -210,8 +210,23 @@ for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "ACTIONBAR_SLOT_CH
 	pcall(f.RegisterEvent, f, e)
 end
 pcall(f.RegisterEvent, f, "PLAYER_REGEN_ENABLED")
+-- Looting by voice ("recoger", "despojar"): the interact key works on the corpse
+-- in front of you, not only the selected one (soft interact, for keyboard too),
+-- and auto loot takes everything, since there's no mouse to pick items with.
+-- Once: if you turn them off again, they stay off.
+local function SetupLooting()
+	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
+	if WoWVozDB.lootSetup or InCombatLockdown() then return end
+	if (tonumber(Try(GetCVar, "SoftTargetInteract")) or 3) < 3 then pcall(SetCVar, "SoftTargetInteract", "3") end
+	pcall(SetCVar, "autoLootDefault", "1")
+	WoWVozDB.lootSetup = true
+	print("|cff66ccff[WoW Voz]|r para recoger por voz: despojo automatico " .. tostring(Try(GetCVar, "autoLootDefault"))
+		.. ", interaccion suave " .. tostring(Try(GetCVar, "SoftTargetInteract")) .. " (Opciones > Controles para cambiarlo).")
+end
+
 local keysReady = false
 f:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_LOGIN" or event == "PLAYER_REGEN_ENABLED" then SetupLooting() end
 	if not keysReady and (event == "PLAYER_LOGIN" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD") then
 		keysReady = SetupVoiceKeys()
 	elseif event == "UPDATE_BINDINGS" and not InCombatLockdown() and not settingUp then

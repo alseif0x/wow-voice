@@ -83,7 +83,7 @@ INTENTS = {
     "clear_focus":  ("WOWVOZ_CLEARFOCUS", "tap", ["quita el foco", "borra el foco", "sin foco", "limpia el foco"], "Clear the focus (\"quita el foco\")."),
     "assist_focus": ("WOWVOZ_ASSISTFOCUS", "tap", ["ayuda al foco", "asiste al foco", "objetivo del foco"], "Target what the focus is targeting (\"asiste al foco\")."),
     "assist":       ("ASSISTTARGET", "tap", ["asiste", "objetivo de mi objetivo"], "Assist: target what your target is targeting."),
-    "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso", "recoger", "recoge", "coge", "saquea", "saquear", "abre"], "Interact with the target: talk, loot, pick up, open (\"interactúa\", \"recoger\", \"saquea\")."),
+    "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso", "recoger", "recoge", "coge", "saquea", "saquear", "abre", "despojar", "despoja", "despojo", "botín", "recoger botín", "coge el botín", "recoger todo", "recoge todo", "coge todo"], "Interact with the target: talk, loot, pick up, open (\"interactúa\", \"recoger\", \"saquea\")."),
     "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
     "close":        ("TOGGLEGAMEMENU", "tap", ["cierra", "cerrar", "cierra eso", "cierra la ventana", "escape"], "Close the open window (Escape): \"cierra\", \"cerrar\"."),
     "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
