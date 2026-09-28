@@ -199,12 +199,21 @@ class Actions:
             if not self.stop_event.wait(0.12):
                 self.kb.press(jump)
             done.wait(3)
-        elif how in ("walkmode", "runmode"):
+        elif how in ("walkmode", "runmode", "walkgo", "rungo"):
             # One key toggles walk/run: press it only when it changes something.
-            want_walk = how == "walkmode"
+            want_walk = how in ("walkmode", "walkgo")
             if self.walking != want_walk:
                 self.kb.press(chord)
                 self.walking = want_walk
+            # "camina" / "corre" also get going (autorun, until "para"); "despacio" / "más rápido" only change the pace.
+            if how in ("walkgo", "rungo") and not self.autorun:
+                go = self.chord("TOGGLEAUTORUN")
+                if not go:
+                    self.log("no usable key for TOGGLEAUTORUN")
+                    return
+                self.stop_event.wait(0.05)
+                self.kb.press(go)
+                self.autorun = True
         elif how == "turn":
             # Keyboard turning in WoW is 180 degrees a second.
             deg = max(5.0, min(float(o.degrees or c.get("turnDegrees", 45)), 180.0))

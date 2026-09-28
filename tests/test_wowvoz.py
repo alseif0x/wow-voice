@@ -29,7 +29,7 @@ class Parse(unittest.TestCase):
             "corre": ("run", 1), "correr": ("run", 1), "camina rápido": ("run", 1), "andar": ("walk", 1), "camina": ("walk", 1), "caminar": ("walk", 1), "avanza": ("forward", 1),
             "caminar automático": ("autorun", 1), "automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
-            "camina lento": ("walk", 1), "a correr": ("run", 1),
+            "camina lento": ("walk", 1), "a correr": ("run", 1), "más despacio": ("slower", 1), "más rápido": ("faster", 1),
             "salta a la izquierda": ("jump_left", 1), "salta adelante": ("jump_forward", 1), "camina a la izquierda": ("strafe_left", 1),
             "corre derecha": ("strafe_right", 1), "recoger": ("interact", 1), "saquea": ("interact", 1),
             "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "focus aliado": ("focus_friend", 1), "asiste": ("assist", 1),
@@ -134,10 +134,22 @@ class Doing(unittest.TestCase):
         self.assertIn("hold", [e[0] for e in ev])
         self.assertIn("press", [e[0] for e in ev])
 
-    def test_walk_and_run_press_the_toggle_only_when_it_changes(self):
-        ev, acts = run_orders([C.Order("walk"), C.Order("walk"), C.Order("run"), C.Order("run")])
+    def test_pace_orders_press_the_toggle_only_when_it_changes(self):
+        ev, acts = run_orders([C.Order("slower"), C.Order("slower"), C.Order("faster"), C.Order("faster")])
         self.assertEqual(sum(1 for e in ev if e[0] == "press"), 2)
         self.assertFalse(acts.walking)
+        self.assertFalse(acts.autorun)
+
+    def test_camina_and_corre_get_going(self):
+        # camina: walk toggle + autorun; corre while moving: only the toggle back to running.
+        ev, acts = run_orders([C.Order("walk"), C.Order("run")])
+        self.assertEqual(sum(1 for e in ev if e[0] == "press"), 3)
+        self.assertTrue(acts.autorun)
+        self.assertFalse(acts.walking)
+        # corre from standing, already running: only autorun.
+        ev, acts = run_orders([C.Order("run")])
+        self.assertEqual(sum(1 for e in ev if e[0] == "press"), 1)
+        self.assertTrue(acts.autorun)
 
     def test_turn_time_follows_the_degrees(self):
         ev, _ = run_orders([C.Order("turn_left", degrees=45), C.Order("turn_right", degrees=180), C.Order("turn_left", degrees=999)],
