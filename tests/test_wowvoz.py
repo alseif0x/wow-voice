@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from wowvoz import commands as C  # noqa: E402
+from wowvoz import lang  # noqa: E402
 from wowvoz.actions import Actions  # noqa: E402
 from wowvoz.game import KeyMap, default_keymap, load_keymap, parse_lua  # noqa: E402
 from wowvoz.keyboard import DryKeyboard, Unsupported, keysym_for, split_binding  # noqa: E402
@@ -86,6 +87,85 @@ class Parse(unittest.TestCase):
     def test_every_grammar_phrase_parses(self):
         for p in C.phrases(BUTTONS):
             self.assertIsNotNone(C.parse(p, BUTTONS), p)
+
+
+EN_BUTTONS = [
+    {"slot": 1, "command": "ACTIONBUTTON1", "keys": ["1"], "kind": "spell", "id": 133, "name": "Fireball"},
+    {"slot": 2, "command": "ACTIONBUTTON2", "keys": ["2"], "kind": "item", "id": 6948, "name": "Hearthstone"},
+    {"slot": 3, "command": "ACTIONBUTTON3", "keys": ["3"], "kind": "spell", "id": 1752, "name": "Sinister Strike (Rank 2)"},
+]
+
+
+class English(unittest.TestCase):
+    def setUp(self):
+        C.set_language("en")
+
+    def tearDown(self):
+        C.set_language("es")
+
+    def test_exact_orders(self):
+        cases = {
+            "jump": ("jump", 1), "jump twice": ("jump", 2), "jump three times": ("jump", 3), "hop": ("jump", 1),
+            "forward": ("forward", 1), "move forward": ("forward", 1), "backpedal": ("back", 1), "strafe left": ("strafe_left", 1),
+            "auto run": ("autorun", 1), "walk": ("walk", 1), "run": ("run", 1), "slow down": ("slower", 1), "speed up": ("faster", 1),
+            "stop": ("stop", 1), "next target": ("target", 1), "tab target": ("target", 1), "focus": ("focus", 1),
+            "clear focus": ("clear_focus", 1), "assist": ("assist", 1), "loot": ("interact", 1), "loot all": ("interact", 1),
+            "pick up": ("interact", 1), "sit down": ("sit", 1), "open bags": ("bags", 1), "world map": ("map", 1),
+            "voice off": ("pause", 1), "voice on": ("resume", 1), "jump to the left": ("jump_left", 1), "ok jump": ("jump", 1),
+        }
+        for text, (kind, count) in cases.items():
+            o = C.parse(text, EN_BUTTONS)
+            self.assertIsNotNone(o, text)
+            self.assertEqual((o.kind, o.count), (kind, count), text)
+
+    def test_turns(self):
+        cases = {"left": ("turn_left", 45), "a little right": ("turn_right", 20), "turn left": ("turn_left", 90),
+                 "hard right": ("turn_right", 135), "turn around": ("turn_around", 180), "one eighty": ("turn_around", 180),
+                 "turn right 30 degrees": ("turn_right", 30), "turn left thirty degrees": ("turn_left", 30),
+                 "turn right forty five degrees": ("turn_right", 45)}
+        for text, (kind, deg) in cases.items():
+            o = C.parse(text, EN_BUTTONS)
+            self.assertEqual((o.kind, o.degrees), (kind, deg), text)
+        self.assertEqual(C.turn_degrees(C.norm("turn a little bit to the right").split()), 20)
+        self.assertEqual(C.turn_degrees(C.norm("spin all the way around").split()), 180)
+
+    def test_buttons_seconds_and_combined(self):
+        self.assertEqual(C.parse("cast fireball", EN_BUTTONS).button["id"], 133)
+        self.assertEqual(C.parse("sinister strike", EN_BUTTONS).button["id"], 1752)
+        self.assertEqual(C.parse("button three", EN_BUTTONS).button, {"number": 3})
+        self.assertEqual(C.parse("forward three", EN_BUTTONS).seconds, 3.0)
+        self.assertEqual(C.split_orders("jump and turn right, then forward"), ["jump", "turn right", "forward"])
+        self.assertIsNone(C.parse("what is for dinner", EN_BUTTONS))
+
+    def test_every_grammar_phrase_parses(self):
+        for p in C.phrases(EN_BUTTONS):
+            self.assertIsNotNone(C.parse(p, EN_BUTTONS), p)
+
+    def test_ask_ai_needs_a_wake_word(self):
+        from wowvoz.recognize import ask_ai_question
+        self.assertEqual(ask_ai_question("hey ai what quest should i do"), "what quest should i do")
+        self.assertEqual(ask_ai_question("ask the ai where is the vendor"), "where is the vendor")
+        self.assertIsNone(ask_ai_question("i think we should go left"))
+
+    def test_jev_criteria_show_english_examples(self):
+        body, _ = C.jev_request("loot that thing", EN_BUTTONS)
+        crit = body["questions"]["order"]["criteria"]
+        self.assertIn('"loot"', crit["interact"])
+        self.assertIn('"stop"', crit["none"])
+
+
+class Languages(unittest.TestCase):
+    def test_pick(self):
+        self.assertEqual(lang.pick("en"), "en")
+        self.assertEqual(lang.pick("auto", "esES", {}), "es")
+        self.assertEqual(lang.pick("auto", "enGB", {}), "en")
+        self.assertEqual(lang.pick("auto", "", {"LANG": "es_ES.UTF-8"}), "es")
+        self.assertEqual(lang.pick("auto", "frFR", {"LANG": "fr_FR.UTF-8"}), "en")
+
+    def test_packs_have_the_same_orders(self):
+        es, en = lang.load("es"), lang.load("en")
+        self.assertEqual(set(es.PHRASES), set(en.PHRASES))
+        self.assertEqual(set(es.PHRASES) | {"turn_left", "turn_right", "turn_around"}, set(C.BASE))
 
 
 class Jev(unittest.TestCase):
@@ -217,7 +297,7 @@ class SavedVariables(unittest.TestCase):
     SV = '''
 WoWVozDB = {
 ["current"] = {
-["character"] = "Luke-Classic Beta PvP 2",
+["character"] = "Aria-Reino de Prueba",
 ["time"] = 1790610000,
 ["bindings"] = {
 ["JUMP"] = {
@@ -251,7 +331,7 @@ WoWVozDB = {
             p = os.path.join(tmp, "WoWVoz.lua")
             open(p, "w").write(self.SV)
             km = load_keymap(os.path.join(tmp, "*.lua"))
-            self.assertEqual(km.character, "Luke-Classic Beta PvP 2")
+            self.assertEqual(km.character, "Aria-Reino de Prueba")
             self.assertEqual(km.keys("MOVEFORWARD"), ["UP"])
             self.assertEqual(km.keys("MOVEBACKWARD"), ["S"], "defaults fill the rest")
             self.assertEqual(km.named_buttons()[0]["name"], 'Golpe "siniestro"')

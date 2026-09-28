@@ -5,28 +5,37 @@ from __future__ import annotations
 import json
 import os
 
-VENV = os.path.expanduser("~/.local/share/wow-ai-voice")
+HOME = os.environ.get("WOWVOZ_HOME") or os.path.expanduser("~/.local/share/wow-voz")  # venv and Vosk models
 CONFIG_FILE = os.path.expanduser("~/.config/wow-voz/config.json")
 
+# Where the game keeps the WoW Voz addon's notes (the most recent one found is used).
+_WOW = "drive_c/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua"
+SAVED_VARIABLES = [
+    f"~/Games/*/{_WOW}",                                     # Lutris (Battle.net prefix)
+    f"~/.wine/{_WOW}",                                       # plain Wine
+    f"~/.steam/steam/steamapps/compatdata/*/pfx/{_WOW}",     # Steam / Proton
+    f"~/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
+    f"~/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
+]
+
 DEFAULTS = {
-    # Recognition
-    "voskModel": f"{VENV}/vosk/vosk-model-small-es-0.42",
-    "whisperModel": "small",
-    "whisperFallback": False,  # Vosk + JEV only (Whisper was 2-4 s on the CPU)
-    "device": "cpu",
-    # JEV (the same OpenRouter key file the RusticOS pilots and WoW AI use)
-    "jevKeyFile": "~/.config/rustic-os/openrouter.env",
+    # Language: "es", "en", or "auto" (the game's language, then the desktop's).
+    "language": "auto",
+    # Recognition: the Vosk model for the language, from voskDir (or voskModel, a path, to pick one).
+    "voskDir": f"{HOME}/vosk",
+    "voskModel": "",
+    # JEV (optional): OPENROUTER_API_KEY, or a file with an OPENROUTER_API_KEY=... line.
+    "jevKeyFile": "~/.config/wow-voz/openrouter.env",
     "jevTimeout": 2.5,
     "jevMinConfidence": 0.8,
-    "jevMinConfidenceWhisper": 0.9,
-    "nearMatch": 0.75,  # how alike Vosk's closed-list guess and its free transcript must sound  # after Whisper (the phrase was already hard to hear)
+    "nearMatch": 0.75,  # how alike Vosk's closed-list guess and its free transcript must sound
     # Microphone and phrases
     "recordCommand": ["arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "raw"],
     "threshold": 700,
     "silenceMs": 360,
     "maxPhraseMs": 5000,
     # The game
-    "savedVariables": "~/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_classic_beta_/WTF/Account/*/SavedVariables/WoWVoz.lua",
+    "savedVariables": SAVED_VARIABLES,
     "windowName": "^World of Warcraft$",
     "wowAiListeningFile": "~/.cache/wow-ai/listening",
     # How long things last
@@ -59,7 +68,9 @@ def load(path: str = CONFIG_FILE) -> dict:
             cfg.update(json.load(f))
     except FileNotFoundError:
         pass
-    for k in ("voskModel", "jevKeyFile", "savedVariables", "wowAiListeningFile", "log"):
+    for k in ("voskDir", "voskModel", "jevKeyFile", "savedVariables", "wowAiListeningFile", "log"):
         if isinstance(cfg.get(k), str):
             cfg[k] = os.path.expanduser(cfg[k])
+        elif isinstance(cfg.get(k), list):
+            cfg[k] = [os.path.expanduser(v) for v in cfg[k]]
     return cfg

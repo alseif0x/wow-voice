@@ -4,7 +4,7 @@
      order phrases (yours and learned aliases included), once free. The same
      phrase, or sounding alike, is the order: ~50-300 ms.
   2. The free transcript is checked against aliases, button names by sound, and
-     "oye IA ..." (a question for WoW AI).
+     "oye IA ..." / "hey AI ..." (a question for WoW AI).
   3. Otherwise JEV reads the free transcript, with Vosk's closest order phrase
      as a hint about mishearing, and picks the order or none.
   Not sure: nothing happens, and the miss is logged for wow-voz-learn.
@@ -13,26 +13,22 @@
 from __future__ import annotations
 
 import json
-import re
 import threading
 
 from . import commands as C
 from . import jev
 from .aliases import LEARNED_FILE, USER_FILE, Aliases
 
-ASK_AI = re.compile(r"^(?:oye |eh |hey |ey |pregunta(?:le)? a la |dile a la |oiga )?(?:ia|i a|y a|la ia|inteligencia artificial|asistente)\b(.*)$")
-WAKE = ("oye", "eh", "hey", "ey", "pregunta", "dile", "oiga")
-
-
 def ask_ai_question(free: str) -> str | None:
-    """"oye IA, qué misión hago" -> "qué misión hago"; None when it isn't one."""
+    """"oye IA, qué misión hago" / "hey AI, what quest now" -> the question; None when it isn't one."""
     t = C.norm(free)
-    m = ASK_AI.match(t)
+    m = C.L.ASK_AI.match(t)
     if not m:
         return None
-    # Without "oye" in front, only a literal "ia" and a real question: "y a la
-    # derecha" sounds just like "IA la derecha".
-    if not t.startswith(WAKE) and not (t.startswith("ia ") and len(m.group(1).split()) >= 3):
+    # Without a wake word in front, only a literal "ia" and a real question (the
+    # language pack says which word, if any): "y a la derecha" sounds like "IA la derecha".
+    bare = C.L.AI_BARE
+    if not t.startswith(C.L.WAKE) and not (bare and t.startswith(bare + " ") and len(m.group(1).split()) >= 3):
         return None
     return m.group(1).strip() or None
 

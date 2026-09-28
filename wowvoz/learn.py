@@ -22,13 +22,13 @@ import time
 
 from . import commands as C
 from . import config
+from . import lang
 from .aliases import LEARNED_FILE, USER_FILE, _read, valid
 from .game import load_keymap
 
 MISSES = os.path.expanduser("~/.cache/wow-voz/misses.jsonl")
 LOG = os.path.expanduser("~/.cache/wow-voz/learn.log")
 FOLLOW_SECONDS = 6.0
-NEVER = {"hola", "si", "no", "vale", "bueno", "que", "eh", "ah", "oye", "venga", "gracias", "adios", "nada", "ya", "mira"}
 
 
 class MissLog:
@@ -94,7 +94,7 @@ def evidence(lines: list[dict]) -> dict[str, dict]:
 def acceptable(phrase: str, spec: str, ev: dict, buttons: list[dict], taken: dict) -> str:
     """"" when the alias may be added, else why not."""
     words = phrase.split()
-    if not 1 <= len(words) <= 6 or phrase in NEVER:
+    if not 1 <= len(words) <= 6 or phrase in C.L.NEVER_LEARN or phrase in C.FILLER:
         return "too short, too long or a common word"
     if not valid(spec, buttons):
         return "not an order"
@@ -139,7 +139,7 @@ def ask_agent(cmd: list[str], prompt: str, timeout: int) -> dict:
     return data.get("aliases") if isinstance(data.get("aliases"), dict) else {}
 
 
-PROMPT = """You tune a voice-control program for World of Warcraft (Spanish speech, Vosk small model).
+PROMPT = """You tune a voice-control program for World of Warcraft ({language} speech, Vosk small model).
 Below are phrases it misheard or couldn't place ("misses"), with evidence: which order the player
 said right after (within 6 s), what JEV (a decision model) guessed, and which order phrase the
 closed-grammar recognizer thought it was. Propose aliases ONLY for misses that clearly are a
@@ -168,7 +168,9 @@ def main() -> int:
         _log("no misses yet")
         return 0
     ev = evidence(lines)  # the whole history each time: small, and nothing counted twice
-    buttons = load_keymap(cfg["savedVariables"]).named_buttons()
+    keymap = load_keymap(cfg["savedVariables"])
+    C.set_language(lang.pick(cfg.get("language", "auto"), keymap.locale))
+    buttons = keymap.named_buttons()
     learned = _read(LEARNED_FILE)
     user = _read(USER_FILE)
     taken = {**existing_phrases(buttons), **{C.norm(k): v for k, v in learned.items()}, **{C.norm(k): v for k, v in user.items()}}
@@ -176,7 +178,7 @@ def main() -> int:
     added = {}
     if candidates and cfg.get("learnCommand", True) is not False:
         orders = "\n".join(f"- {iid}: {', '.join(words[:4]) if words else crit}" for iid, (_, _, words, crit) in C.INTENTS.items())
-        prompt = PROMPT.format(orders=orders, buttons=", ".join(b["name"] for b in buttons) or "(none)",
+        prompt = PROMPT.format(language=C.L.NAME, orders=orders, buttons=", ".join(b["name"] for b in buttons) or "(none)",
                                aliases=json.dumps({**learned, **user}, ensure_ascii=False),
                                misses="\n".join(f"- {k}: {json.dumps(v, ensure_ascii=False)}" for k, v in list(candidates.items())[:60]))
         cmd = cfg.get("learnCommand") or ["claude", "-p", "--model", "opus", "--effort", "low"]

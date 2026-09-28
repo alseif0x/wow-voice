@@ -127,11 +127,12 @@ def as_list(t) -> list:
 class KeyMap:
     """Binding command -> keys, and the named things on the action bars."""
 
-    def __init__(self, bindings: dict, buttons: list, source: str, character: str = ""):
+    def __init__(self, bindings: dict, buttons: list, source: str, character: str = "", locale: str = ""):
         self.bindings = bindings
         self.buttons = buttons       # [{slot, command, keys, kind, id, name}]
         self.source = source
         self.character = character
+        self.locale = locale         # the game's language (esES, enUS...), for language "auto"
 
     def keys(self, command: str) -> list[str]:
         return self.bindings.get(command) or []
@@ -159,11 +160,15 @@ def default_keymap() -> KeyMap:
     return KeyMap(dict(DEFAULT_BINDINGS), buttons, "WoW defaults (the WoWVoz addon hasn't reported yet)")
 
 
-def find_saved_variables(wtf_glob: str) -> list[str]:
-    return sorted(glob.glob(os.path.expanduser(wtf_glob)), key=lambda p: os.path.getmtime(p), reverse=True)
+def find_saved_variables(wtf_glob: str | list[str]) -> list[str]:
+    """Every WoWVoz.lua the patterns find (one pattern, or a list: Lutris, Wine,
+    Steam...), the most recently written first."""
+    patterns = [wtf_glob] if isinstance(wtf_glob, str) else list(wtf_glob)
+    found = {p for pat in patterns for p in glob.glob(os.path.expanduser(pat))}
+    return sorted(found, key=lambda p: os.path.getmtime(p), reverse=True)
 
 
-def load_keymap(wtf_glob: str) -> KeyMap:
+def load_keymap(wtf_glob: str | list[str]) -> KeyMap:
     for path in find_saved_variables(wtf_glob):
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
@@ -184,7 +189,7 @@ def load_keymap(wtf_glob: str) -> KeyMap:
                 buttons.append({"slot": b.get("slot"), "command": b.get("command"), "keys": [k for k in as_list(b.get("keys")) if isinstance(k, str)],
                                 "kind": b.get("kind"), "id": b.get("id"), "name": b.get("name")})
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(cur.get("time") or os.path.getmtime(path)))
-        return KeyMap(bindings, buttons, f"{path} ({when})", str(cur.get("character") or ""))
+        return KeyMap(bindings, buttons, f"{path} ({when})", str(cur.get("character") or ""), str(cur.get("locale") or ""))
     return default_keymap()
 
 

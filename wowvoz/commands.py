@@ -17,10 +17,87 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
-NUMBERS = {"un": 1, "una": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
-           "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12}
-COUNT_WORDS = ["dos", "tres", "cuatro", "cinco"]
-FILLER = {"vale", "venga", "eh", "porfa", "ya", "ahora", "oye", "bueno"}
+from . import lang
+
+# id -> (binding command or None, how it is done, JEV criteria). The phrases for
+# each come from the language pack (lang/es.py, lang/en.py): see set_language().
+BASE = {
+    "jump":         ("JUMP", "tap", "Jump in place, once or the number of times said."),
+    # Jumping while moving that way: the direction held a moment, the jump in the middle.
+    "jump_left":    ("STRAFELEFT", "jumpmove", "Jump sideways to the left."),
+    "jump_right":   ("STRAFERIGHT", "jumpmove", "Jump sideways to the right."),
+    "jump_forward": ("MOVEFORWARD", "jumpmove", "Jump forward."),
+    "jump_back":    ("MOVEBACKWARD", "jumpmove", "Jump backward."),
+    "forward":      ("MOVEFORWARD", "hold", "Walk forward for a moment."),
+    "back":         ("MOVEBACKWARD", "hold", "Walk backward for a moment."),
+    "strafe_left":  ("STRAFELEFT", "hold", "Step sideways to the left, without turning."),
+    "strafe_right": ("STRAFERIGHT", "hold", "Step sideways to the right, without turning."),
+    "turn_left":    ("TURNLEFT", "turn", "Turn to the left, a little or a lot."),
+    "turn_right":   ("TURNRIGHT", "turn", "Turn to the right, a little or a lot."),
+    "turn_around":  ("TURNLEFT", "turn", "Turn around to face the other way, 180 degrees, no side needed."),
+    "autorun":      ("TOGGLEAUTORUN", "tap", "Switch autorun on or off: keep going straight ahead on its own."),
+    "walk":         ("TOGGLERUN", "walkgo", "Walk forward at walking speed, on its own until told to stop."),
+    "run":          ("TOGGLERUN", "rungo", "Run forward at running speed, on its own until told to stop."),
+    "slower":       ("TOGGLERUN", "walkmode", "Slow down to walking speed without starting to move."),
+    "faster":       ("TOGGLERUN", "runmode", "Speed up to running without starting to move."),
+    "stop":         (None, "stop", "Stop moving: stop walking, running or autorun."),
+    "target":       ("TARGETNEARESTENEMY", "tap", "Target the next nearest enemy."),
+    "target_friend": ("TARGETNEARESTFRIEND", "tap", "Target the nearest friendly character."),
+    "focus":        ("WOWVOZ_FOCUS", "tap", "Set the current target as focus."),
+    "target_focus": ("WOWVOZ_TARGETFOCUS", "tap", "Target the focus again."),
+    "focus_friend": ("WOWVOZ_FOCUSFRIEND", "tap", "Set the nearest friendly character as focus, keeping the current target."),
+    "clear_focus":  ("WOWVOZ_CLEARFOCUS", "tap", "Clear the focus."),
+    "assist_focus": ("WOWVOZ_ASSISTFOCUS", "tap", "Target what the focus is targeting."),
+    "assist":       ("ASSISTTARGET", "tap", "Target what the current target is targeting."),
+    "interact":     ("INTERACTTARGET", "tap", "Interact with what is in front: loot a corpse, talk to a character, open or pick up an object."),
+    "sit":          ("SITORSTAND", "tap", "Sit down or stand up."),
+    "close":        ("TOGGLEGAMEMENU", "tap", "Close the open window or menu (Escape)."),
+    "map":          ("TOGGLEWORLDMAP", "tap", "Open or close the world map."),
+    "bags":         ("TOGGLEBACKPACK", "tap", "Open or close the bags."),
+    "ask_ai":       ("WOWAI_TALK", "ask_ai", "A question or request for the AI assistant (WoW AI), usually starting with a wake word."),
+    "pause":        (None, "pause", "Stop listening to voice orders for now."),
+    "resume":       (None, "resume", "Start listening to voice orders again."),
+}
+
+# Filled in by set_language(): id -> (command, how, phrases, JEV criteria). The
+# same dict object throughout (other modules import it), refilled in place.
+INTENTS: dict[str, tuple] = {}
+L = None  # the language pack in use
+LANGUAGE = ""
+
+
+def set_language(code: str) -> None:
+    """Use this language's phrases and words for everything below."""
+    global L, LANGUAGE, NUMBERS, COUNT_WORDS, FILLER, CAST_VERBS, TURNS, AROUND, DEGREE_WORDS, SPLIT, NONE_CRITERIA, HINT_NOTE
+    L = lang.load(code)
+    LANGUAGE = code
+    NUMBERS, COUNT_WORDS, FILLER, CAST_VERBS = L.NUMBERS, L.COUNT_WORDS, L.FILLER, L.CAST_VERBS
+    TURNS, AROUND, DEGREE_WORDS = L.TURNS, L.AROUND, L.DEGREE_WORDS
+    INTENTS.clear()
+    for iid, (command, how, crit) in BASE.items():
+        if iid in ("turn_left", "turn_right"):
+            words = [p for p, (d, _) in TURNS.items() if d == iid[5:]]
+        elif iid == "turn_around":
+            words = list(AROUND)
+        else:
+            words = list(L.PHRASES.get(iid, []))
+        examples = words[:3] or ([L.AI_EXAMPLE] if iid == "ask_ai" else [])
+        if examples:
+            crit = f"{crit} Said like: " + ", ".join(f'"{e}"' for e in examples) + "."
+        INTENTS[iid] = (command, how, words, crit)
+    joins = "|".join(r"\b" + re.escape(c) + r"\b" for c in sorted(L.CONNECTORS, key=len, reverse=True))
+    SPLIT = re.compile(r"\s*(?:,|" + joins + r")\s*")
+    NONE_CRITERIA = ("Not an order for the character: talking to someone in the room, a question or a request for the "
+                     f"AI assistant, chat, noise, or a sentence that only mentions a word like \"{L.NONE_EXAMPLES[0]}\" "
+                     f"or \"{L.NONE_EXAMPLES[1]}\".")
+    HINT_NOTE = (" `closest_order_phrase` is the order phrase the sound was closest to: only a hint about mishearing "
+                 f"(\"{L.HINT_EXAMPLE[0]}\" was \"{L.HINT_EXAMPLE[1]}\"). Ordinary speech always has some closest phrase "
+                 "too, so pick none when `utterance` is clearly not an order.")
+
+
+JEV_INSTRUCTIONS = ("The player of World of Warcraft said `utterance` out loud while playing. It may be a voice order "
+                    "for their character (the options below) or something else. Pick the order they gave, or none. "
+                    "Speech recognition can mishear words: judge what they meant.")
 
 
 @dataclass
@@ -34,71 +111,6 @@ class Order:
     via: str = ""             # vosk, vosk+jev, whisper+jev
     confidence: float = 1.0
     extra: dict = field(default_factory=dict)
-
-
-# Turning, by how much: a bare "izquierda" is a small, natural turn; "gira" a
-# quarter; "mucho" more; "media vuelta" half. Or "... N grados".
-TURNS = {}
-for _side, _word in (("left", "izquierda"), ("right", "derecha")):
-    TURNS.update({
-        f"un poco a la {_word}": (_side, 20), f"un poco {_word}": (_side, 20), f"poquito a la {_word}": (_side, 20),
-        _word: (_side, 45), f"a la {_word}": (_side, 45), f"hacia la {_word}": (_side, 45),
-        f"gira a la {_word}": (_side, 90), f"gira {_word}": (_side, 90), f"gira hacia la {_word}": (_side, 90),
-        f"mucho a la {_word}": (_side, 135), f"gira mucho a la {_word}": (_side, 135), f"muy a la {_word}": (_side, 135),
-    })
-# Half a turn needs no side: its own order, so JEV isn't torn between left and right.
-AROUND = ["media vuelta", "date la vuelta", "da la vuelta", "vuelta", "vuelta completa", "gira totalmente",
-          "gira atrás", "gira hacia atrás", "mira atrás", "mira hacia atrás", "date vuelta",
-          "gira completamente", "gira del todo", "gira ciento ochenta", "gira ciento ochenta grados", "ciento ochenta grados",
-          "giro ciento ochenta", "date media vuelta"]
-DEGREE_WORDS = {"diez": 10, "veinte": 20, "treinta": 30, "cuarenta y cinco": 45, "sesenta": 60, "noventa": 90,
-                "ciento veinte": 120, "ciento ochenta": 180}
-
-# id -> (binding command or None, how it is done, Spanish phrases, JEV criteria)
-INTENTS = {
-    "jump":         ("JUMP", "tap", ["salta", "salto", "brinca"], "Jump in place (\"salta\", \"dale un salto\")."),
-    # Jumping while moving that way: the direction held a moment, the jump in the middle.
-    "jump_left":    ("STRAFELEFT", "jumpmove", ["salta a la izquierda", "salta izquierda", "salto a la izquierda"], "Jump sideways to the left (\"salta a la izquierda\")."),
-    "jump_right":   ("STRAFERIGHT", "jumpmove", ["salta a la derecha", "salta derecha", "salto a la derecha"], "Jump sideways to the right (\"salta a la derecha\")."),
-    "jump_forward": ("MOVEFORWARD", "jumpmove", ["salta adelante", "salta hacia adelante", "salto adelante"], "Jump forward (\"salta adelante\")."),
-    "jump_back":    ("MOVEBACKWARD", "jumpmove", ["salta atrás", "salta hacia atrás", "salto atrás"], "Jump backward (\"salta atrás\")."),
-    "forward":      ("MOVEFORWARD", "hold", ["adelante", "avanza", "hacia adelante", "un paso adelante"], "Walk forward for a moment (\"adelante\", \"avanza un poco\")."),
-    "back":         ("MOVEBACKWARD", "hold", ["atrás", "retrocede", "hacia atrás", "marcha atrás"], "Walk backward for a moment (\"atrás\", \"retrocede\")."),
-    "strafe_left":  ("STRAFELEFT", "hold", ["paso a la izquierda", "de lado a la izquierda", "lateral izquierda", "camina a la izquierda", "camina izquierda", "corre a la izquierda", "corre izquierda", "muévete a la izquierda", "ve a la izquierda"], "Step sideways to the left, without turning (\"paso a la izquierda\")."),
-    "strafe_right": ("STRAFERIGHT", "hold", ["paso a la derecha", "de lado a la derecha", "lateral derecha", "camina a la derecha", "camina derecha", "corre a la derecha", "corre derecha", "muévete a la derecha", "ve a la derecha"], "Step sideways to the right, without turning (\"paso a la derecha\")."),
-    "turn_left":    ("TURNLEFT", "turn", [p for p, (d, _) in TURNS.items() if d == "left"], "Turn to the left, a little or a lot (\"izquierda\", \"gira a la izquierda\", \"media vuelta\")."),
-    "turn_right":   ("TURNRIGHT", "turn", [p for p, (d, _) in TURNS.items() if d == "right"], "Turn to the right, a little or a lot (\"derecha\", \"gira a la derecha\")."),
-    "turn_around":  ("TURNLEFT", "turn", AROUND, "Turn around to face the other way, 180 degrees, no side needed (\"media vuelta\", \"gira 180 grados\", \"gira totalmente\")."),
-    "autorun":      ("TOGGLEAUTORUN", "tap", ["caminar automático", "camina automático", "correr automático", "automático", "auto", "camina solo", "sigue recto", "todo recto", "sigue adelante", "recto"], "Switch autorun on or off: keep going straight ahead on its own (\"caminar automático\", \"automático\", \"sigue recto\")."),
-    "walk":         ("TOGGLERUN", "walkgo", ["andar", "anda", "camina", "caminar", "a caminar", "a andar", "camina lento", "anda despacio", "camina despacio", "ve despacio", "anda lento"], "Walk forward at walking speed, on its own until \"para\" (\"camina\", \"anda\", \"camina despacio\")."),
-    "run":          ("TOGGLERUN", "rungo", ["corre", "correr", "a correr", "corre rápido", "camina rápido", "anda rápido"], "Run forward at running speed, on its own until \"para\" (\"corre\", \"correr\", \"camina rápido\")."),
-    "slower":       ("TOGGLERUN", "walkmode", ["despacio", "más despacio", "modo andar", "más lento", "lento"], "Slow down to walking speed without starting to move (\"despacio\", \"más despacio\")."),
-    "faster":       ("TOGGLERUN", "runmode", ["más rápido", "rápido", "modo correr"], "Speed up to running without starting to move (\"más rápido\", \"rápido\")."),
-    "stop":         (None, "stop", ["para", "alto", "quieto", "detente", "stop", "frena"], "Stop moving: stop walking, running or autorun (\"para\", \"alto\")."),
-    "target":       ("TARGETNEARESTENEMY", "tap", ["siguiente objetivo", "objetivo", "cambia de objetivo", "otro enemigo"], "Target the next nearest enemy (\"siguiente objetivo\")."),
-    "target_friend": ("TARGETNEARESTFRIEND", "tap", ["objetivo amigo", "aliado"], "Target the nearest friendly character."),
-    "focus":        ("WOWVOZ_FOCUS", "tap", ["foco", "pon el foco", "marca el foco", "enfoca", "focus", "ponle foco"], "Set the current target as focus (\"pon el foco\", \"focus\")."),
-    "target_focus": ("WOWVOZ_TARGETFOCUS", "tap", ["objetivo foco", "selecciona el foco", "apunta al foco", "vuelve al foco", "coge el foco"], "Target the focus again (\"vuelve al foco\")."),
-    "focus_friend": ("WOWVOZ_FOCUSFRIEND", "tap", ["focus aliado", "foco aliado", "foco al aliado", "pon el foco en el aliado", "enfoca al aliado"], "Set the nearest friendly character as focus, keeping the current target (\"focus aliado\")."),
-    "clear_focus":  ("WOWVOZ_CLEARFOCUS", "tap", ["quita el foco", "borra el foco", "sin foco", "limpia el foco"], "Clear the focus (\"quita el foco\")."),
-    "assist_focus": ("WOWVOZ_ASSISTFOCUS", "tap", ["ayuda al foco", "asiste al foco", "objetivo del foco"], "Target what the focus is targeting (\"asiste al foco\")."),
-    "assist":       ("ASSISTTARGET", "tap", ["asiste", "objetivo de mi objetivo"], "Assist: target what your target is targeting."),
-    "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso", "recoger", "recoge", "coge", "saquea", "saquear", "abre", "despojar", "despoja", "despojo", "botín", "recoger botín", "coge el botín", "recoger todo", "recoge todo", "coge todo"], "Interact with the target: talk, loot, pick up, open (\"interactúa\", \"recoger\", \"saquea\")."),
-    "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
-    "close":        ("TOGGLEGAMEMENU", "tap", ["cierra", "cerrar", "cierra eso", "cierra la ventana", "escape"], "Close the open window (Escape): \"cierra\", \"cerrar\"."),
-    "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
-    "bags":         ("TOGGLEBACKPACK", "tap", ["bolsas", "abre las bolsas", "mochila"], "Open or close the bags."),
-    "ask_ai":       ("WOWAI_TALK", "ask_ai", [], "A question or request for the AI assistant (WoW AI), usually starting with \"oye IA\" (\"oye IA, ¿qué misión hago?\")."),
-    "pause":        (None, "pause", ["voz pausa", "pausa voz", "pausa la voz", "deja de escuchar"], "Stop listening to voice orders for now."),
-    "resume":       (None, "resume", ["voz activa", "activa voz", "activa la voz", "escúchame", "empieza"], "Start listening to voice orders again."),
-}
-CAST_VERBS = ["lanza", "usa", "tira", "activa"]
-
-NONE_CRITERIA = ("Not an order for the character: talking to someone in the room, a question or a request for the "
-                 "AI assistant, chat, noise, or a sentence that only mentions a word like \"para\" or \"salta\".")
-JEV_INSTRUCTIONS = ("The player of World of Warcraft said `utterance` out loud while playing. It may be a voice order "
-                    "for their character (the options below) or something else. Pick the order they gave, or none. "
-                    "Speech recognition can mishear words: judge what they meant.")
 
 
 def norm(s: str) -> str:
@@ -132,12 +144,13 @@ def phrases(buttons: list[dict]) -> list[str]:
     for iid, (_, how, words, _) in INTENTS.items():
         out.extend(words)
         if iid == "jump":
-            out.extend(f"{w} {n} veces" for w in words for n in COUNT_WORDS)
+            out.extend(f"{w} {n} {L.TIMES}" for w in words for n in COUNT_WORDS)
+            out.extend(f"{w} {n}" for w in words for n in L.TIMES_SPECIAL)
         if how == "hold":
             out.extend(f"{w} {n}" for w in words for n in COUNT_WORDS)
-        if how == "turn":
-            word = "izquierda" if iid == "turn_left" else "derecha"
-            out.extend(f"gira a la {word} {d} grados" for d in DEGREE_WORDS)
+        if iid in ("turn_left", "turn_right"):
+            side = L.SIDES[iid[5:]]
+            out.extend(L.TURN_DEGREES_PHRASE.format(side=side, n=d) for d in DEGREE_WORDS)
     for b in buttons:
         n = spoken_name(b.get("name") or "")
         if n:
@@ -146,16 +159,13 @@ def phrases(buttons: list[dict]) -> list[str]:
     for w in short_names(buttons):
         out.append(w)
         out.extend(f"{v} {w}" for v in CAST_VERBS)
-    out.extend(f"botón {w}" for w in list(NUMBERS)[2:])
+    out.extend(f"{L.BUTTON_WORD} {w}" for w in L.BUTTON_NUMBERS)
     seen, uniq = set(), []
     for p in out:
         if p not in seen:
             seen.add(p)
             uniq.append(p)
     return uniq
-
-
-SPLIT = re.compile(r"\s*(?:,|\by luego\b|\by despues\b|\bluego\b|\bdespues\b|\by\b)\s*")
 
 
 def split_orders(text: str) -> list[str]:
@@ -216,35 +226,41 @@ def parse(text: str, buttons: list[dict]) -> Order | None:
     t = " ".join(words)
     if not t:
         return None
-    # "botón tres"
-    m = re.fullmatch(r"boton (\w+)", t)
+    # "botón tres" / "button three"
+    m = re.fullmatch(norm(L.BUTTON_WORD) + r" (\w+)", t)
     if m:
         n = NUMBERS.get(m.group(1)) or (int(m.group(1)) if m.group(1).isdigit() else None)
         return Order("button", button={"number": n}, text=text) if n and 1 <= n <= 12 else None
     for p in AROUND:
         if t == norm(p):
             return Order("turn_around", degrees=180.0, text=text)
-    if re.fullmatch(r"(?:gira |giro )?180(?: grados)?", t):
+    verbs = "|".join(map(re.escape, L.TURN_VERBS))
+    preps = "|".join(re.escape(norm(p)) for p in L.SIDE_PREFIXES)
+    left, right, deg_word = norm(L.SIDES["left"]), norm(L.SIDES["right"]), norm(L.DEGREES)
+    if re.fullmatch(rf"(?:(?:{verbs}) )?180(?: {deg_word})?", t):
         return Order("turn_around", degrees=180.0, text=text)
     for p, (side, deg) in TURNS.items():
         if t == norm(p):
             return Order("turn_left" if side == "left" else "turn_right", degrees=float(deg), text=text)
-    m = re.fullmatch(r"(?:gira |giro )?(?:a la |hacia la )?(izquierda|derecha) (\d{1,3})(?: grados)?", t)
+    m = re.fullmatch(rf"(?:(?:{verbs}) )?(?:(?:{preps}) )?({left}|{right}) (\d{{1,3}})(?: {deg_word})?", t)
     if m and 5 <= int(m.group(2)) <= 180:
-        return Order("turn_left" if m.group(1) == "izquierda" else "turn_right", degrees=float(m.group(2)), text=text)
-    m = re.fullmatch(r"(?:gira )?(?:a la |hacia la )?(izquierda|derecha) (.+) grados", t)
-    if m and norm(m.group(2)) in {norm(k): v for k, v in DEGREE_WORDS.items()}:
-        deg = {norm(k): v for k, v in DEGREE_WORDS.items()}[norm(m.group(2))]
-        return Order("turn_left" if m.group(1) == "izquierda" else "turn_right", degrees=float(deg), text=text)
+        return Order("turn_left" if m.group(1) == left else "turn_right", degrees=float(m.group(2)), text=text)
+    m = re.fullmatch(rf"(?:(?:{verbs}) )?(?:(?:{preps}) )?({left}|{right}) (.+) {deg_word}", t)
+    words_deg = {norm(k): v for k, v in DEGREE_WORDS.items()}
+    if m and norm(m.group(2)) in words_deg:
+        return Order("turn_left" if m.group(1) == left else "turn_right", degrees=float(words_deg[norm(m.group(2))]), text=text)
     for iid, (_, how, ws, _) in INTENTS.items():
         for w in ws:
             wn = norm(w)
             if t == wn:
                 return Order(iid, text=text)
             if iid == "jump":
-                m = re.fullmatch(re.escape(wn) + r" (\w+) veces", t)
+                m = re.fullmatch(re.escape(wn) + r" (\w+) " + re.escape(L.TIMES), t)
                 if m and m.group(1) in NUMBERS:
                     return Order(iid, count=NUMBERS[m.group(1)], text=text)
+                for special, n in L.TIMES_SPECIAL.items():
+                    if t == f"{wn} {special}":
+                        return Order(iid, count=n, text=text)
             if how == "hold":
                 m = re.fullmatch(re.escape(wn) + r" (\w+)", t)
                 if m and (m.group(1) in NUMBERS or m.group(1).isdigit()):
@@ -278,11 +294,6 @@ def jev_options(buttons: list[dict], limit: int = 30) -> dict[str, tuple[str, di
     return opts
 
 
-HINT_NOTE = (" `closest_order_phrase` is the order phrase the sound was closest to: only a hint about mishearing "
-             "(\"gira de echa\" was \"gira a la derecha\"). Ordinary speech always has some closest phrase too, so pick "
-             "none when `utterance` is clearly not an order.")
-
-
 def jev_request(utterance: str, buttons: list[dict], model: str = "typesafe/jev-1.13", hint: str = "") -> tuple[dict, dict]:
     opts = jev_options(buttons)
     q = {"type": "choice", "instructions": JEV_INSTRUCTIONS + (HINT_NOTE if hint else ""), "criteria": {k: v[0] for k, v in opts.items()}}
@@ -307,10 +318,12 @@ def order_from_jev(answer: dict, opts: dict, utterance: str, min_conf: float) ->
     if button is not None:
         return Order("button", button=button, text=utterance, confidence=conf)
     o = Order(choice, text=utterance, confidence=conf)
-    if choice == "jump" and n and "veces" in words:
-        o.count = n
+    if choice == "jump":
+        special = next((v for k, v in L.TIMES_SPECIAL.items() if k in words), None)
+        if special or (n and L.TIMES in words):
+            o.count = special or n
     how = INTENTS[choice][1]
-    if how == "hold" and n and ("segundos" in words or "segundo" in words):
+    if how == "hold" and n and L.SECONDS & set(words):
         o.seconds = float(n)
     if how == "turn":
         o.degrees = 180.0 if choice == "turn_around" else turn_degrees(words)
@@ -318,20 +331,25 @@ def order_from_jev(answer: dict, opts: dict, utterance: str, min_conf: float) ->
 
 
 def turn_degrees(words: list[str]) -> float:
-    """How far a free phrase says to turn: "un poco" 20, "gira" 90, "mucho" 135, "vuelta" 180, "N grados", else 45."""
+    """How far a free phrase says to turn: "un poco" / "a little" 20, "gira" / "turn" 90,
+    "mucho" / "hard" 135, "vuelta" / "around" 180, "N grados" / "N degrees", else 45."""
     t = " ".join(words)
     for w in words:
         if w.isdigit() and 5 <= int(w) <= 180:
             return float(w)
     for k, v in sorted(DEGREE_WORDS.items(), key=lambda kv: -len(kv[0])):
-        if f"{norm(k)} grados" in t:
+        if f"{norm(k)} {norm(L.DEGREES)}" in t:
             return float(v)
-    if "vuelta" in words:
+    ws = set(words)
+    if ws & L.AMOUNT["around"]:
         return 180.0
-    if "mucho" in words or "muy" in words:
+    if ws & L.AMOUNT["much"]:
         return 135.0
-    if "poco" in words or "poquito" in words:
+    if ws & L.AMOUNT["little"]:
         return 20.0
-    if "gira" in words or "girar" in words:
+    if ws & L.AMOUNT["turn"]:
         return 90.0
     return 45.0
+
+
+set_language("es")

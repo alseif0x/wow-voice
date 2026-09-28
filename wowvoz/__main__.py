@@ -5,8 +5,9 @@
   python -m wowvoz --say TEXT   what TEXT would do (no microphone, nothing pressed)
   python -m wowvoz --file X.wav what a 16 kHz mono recording would do
   python -m wowvoz --keys       the key map it is using
-  python -m wowvoz --paused     start paused ("voz activa" to begin)
-  python -m wowvoz --calibrar   measure the room and your voice, and set the microphone threshold
+  python -m wowvoz --paused     start paused ("voz activa" / "voice on" to begin)
+  python -m wowvoz --calibrate  measure the room and your voice, and set the microphone threshold
+  python -m wowvoz --lang en    speak English (es, en; default: the game's language)
 """
 
 from __future__ import annotations
@@ -22,8 +23,9 @@ import wave
 
 from . import commands as C
 from . import config
+from . import lang
 from .actions import Actions
-from .game import Focus, load_keymap
+from .game import Focus, find_saved_variables, load_keymap
 from .keyboard import DryKeyboard, Keyboard, XKeymap
 from .beeps import Beeps
 from .listen import FRAME_BYTES, Phrases, microphone, other_listener_active
@@ -62,7 +64,7 @@ def describe(o: C.Order) -> str:
         return " + ".join(describe(p) for p in (o.extra or {}).get("orders", []))
     if o.kind == "button":
         b = o.button or {}
-        what = b.get("name") or (f"botón {b['number']}" if "number" in b else b.get("command"))
+        what = b.get("name") or (f"button {b['number']}" if "number" in b else b.get("command"))
         return f"button {what}"
     extra = f" x{o.count}" if o.count > 1 else (f" {o.seconds:g}s" if o.seconds else (f" {o.degrees:g}°" if o.degrees else ""))
     return o.kind + extra
@@ -82,17 +84,17 @@ def calibrate(cfg: dict, path: str) -> int:
                 break
         return out
 
-    print("Silencio unos segundos, sin hablar... (midiendo el ruido de la habitación)")
+    print(C.L.CALIBRATE["quiet"])
     time.sleep(0.5)
     quiet = sorted(levels(3.0))
-    print('Ahora di varias veces, a tu volumen normal: "salta", "adelante", "izquierda"...')
+    print(C.L.CALIBRATE["speak"])
     time.sleep(0.3)
     voice = sorted(levels(5.0))
     noise = quiet[int(len(quiet) * 0.95)] if quiet else 0
     loud = [v for v in voice if v > noise * 2] or voice
     speech = statistics.median(loud) if loud else 0
     if speech <= noise * 1.5:
-        print(f"No distingo tu voz del ruido (ruido {noise:.0f}, voz {speech:.0f}). ¿El micrófono está silenciado o lejos?")
+        print(C.L.CALIBRATE["fail"].format(noise=noise, speech=speech))
         return 1
     threshold = round(max(noise * 1.8, min(speech * 0.35, noise + (speech - noise) * 0.3)))
     try:
@@ -104,7 +106,7 @@ def calibrate(cfg: dict, path: str) -> int:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f"Ruido {noise:.0f}, voz {speech:.0f} -> umbral {threshold} guardado en {path}. Reinicia wow-voz para usarlo.")
+    print(C.L.CALIBRATE["done"].format(noise=noise, speech=speech, threshold=threshold, path=path))
     return 0
 
 
@@ -117,17 +119,22 @@ def main() -> int:
     ap.add_argument("--paused", action="store_true")
     ap.add_argument("--config", default=config.CONFIG_FILE)
     ap.add_argument("--calibrar", "--calibrate", action="store_true")
+    ap.add_argument("--lang", choices=lang.LANGUAGES, help="spoken language (default: the config's, or the game's)")
     args = ap.parse_args()
     cfg = config.load(args.config)
+    if args.lang:
+        cfg["language"] = args.lang
     if args.paused:
         cfg["startPaused"] = True
     log = make_log(cfg["log"])
     x_display()
 
+    keymap = load_keymap(cfg["savedVariables"])
+    C.set_language(lang.pick(cfg.get("language", "auto"), keymap.locale))
+    cfg["voskModel"] = cfg.get("voskModel") or os.path.join(cfg["voskDir"], C.L.VOSK_MODEL)
+
     if args.calibrar:
         return calibrate(cfg, args.config)
-
-    keymap = load_keymap(cfg["savedVariables"])
     if args.keys:
         print(f"key map: {keymap.source}{' - ' + keymap.character if keymap.character else ''}")
         for cmd, keys in sorted(keymap.bindings.items()):
@@ -141,8 +148,11 @@ def main() -> int:
     rec.set_buttons(keymap.named_buttons())
 
     if args.say is not None:
+        from .recognize import ask_ai_question
         b = C.button_by_sound(args.say, rec.buttons, float(cfg.get("nearMatch", 0.75)))
-        o = (rec.exact(args.say) or (C.Order("button", button=b, text=args.say, via="sound") if b else None)
+        q = ask_ai_question(args.say)
+        o = (rec.exact(args.say) or (C.Order("ask_ai", text=q, via="wake word") if q else None)
+             or (C.Order("button", button=b, text=args.say, via="sound") if b else None)
              or rec.combined(args.say) or rec.ask_jev(args.say, "jev"))
         print(describe(o) + f"  (via {o.via or 'parse'}, confidence {o.confidence:.2f})" if o else "no order")
         return 0
@@ -166,7 +176,7 @@ def main() -> int:
     misses = MissLog()
     focus = Focus(cfg["windowName"])
     acts = Actions(kb, keymap, xk, focus, cfg, log)
-    log(f"wow-voz listening{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
+    log(f"wow-voz listening, in {C.L.NAME}{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
     beeps = Beeps(cfg)
     beeps.play("off" if acts.paused else "on")
@@ -234,7 +244,7 @@ def main() -> int:
             now = time.monotonic()
             if now - last_check > 10:  # the addon's data changes on /reload and logout
                 last_check = now
-                paths = glob.glob(cfg["savedVariables"])
+                paths = find_saved_variables(cfg["savedVariables"])
                 m = max((os.path.getmtime(p) for p in paths), default=0.0)
                 if m != sv_mtime:
                     sv_mtime = m
