@@ -13,7 +13,7 @@ local ADDON = ...
 local COMMANDS = {
 	"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT",
 	"JUMP", "TOGGLEAUTORUN", "TOGGLERUN", "SITORSTAND", "TARGETNEARESTENEMY", "TARGETNEARESTFRIEND",
-	"INTERACTTARGET", "ASSISTTARGET", "FOLLOWTARGET", "TOGGLEWORLDMAP", "TOGGLEBACKPACK",
+	"INTERACTTARGET", "ASSISTTARGET", "FOLLOWTARGET", "TOGGLEWORLDMAP", "TOGGLEBACKPACK", "TOGGLEGAMEMENU",
 }
 
 -- Action slot -> the binding command that presses it (the standard bars).
@@ -118,6 +118,14 @@ local function SetupVoiceKeys()
 		b:SetAttribute("type", "macro")
 		b:SetAttribute("macrotext", v.macro)
 		b:RegisterForClicks("AnyDown", "AnyUp")
+		if not b.wowvozHooked then
+			b.wowvozHooked = true
+			-- Say that the key got here (a voice order), once per press.
+			b:HookScript("PostClick", function(_, _, down)
+				if down == false then return end
+				print("|cff66ccff[WoW Voz]|r " .. v.macro:gsub("\n", " ; "))
+			end)
+		end
 		local key = FreeKey()
 		if key then
 			SetOverrideBindingClick(voiceOwner, true, key, v.id, "LeftButton")
@@ -306,6 +314,10 @@ SlashCmdList["WOWVOZ"] = function(msg)
 	elseif msg == "boton" or msg == "botón" then
 		WoWVozDB.hideButton = not WoWVozDB.hideButton
 		if button then button:SetShown(not WoWVozDB.hideButton) end
+	elseif msg == "teclas" or msg == "keys" then
+		for id, key in pairs(voiceKeys) do
+			print("|cff66ccff[WoW Voz]|r " .. key .. " -> " .. id .. "  (" .. tostring(Try(GetBindingAction, key)) .. ")")
+		end
 	elseif msg == "guardar" or msg == "datos" then
 		Snapshot()
 		local d = WoWVozDB.current

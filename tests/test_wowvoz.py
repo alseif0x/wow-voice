@@ -61,6 +61,10 @@ class Parse(unittest.TestCase):
         self.assertEqual(C.parse("Piedra de hogar", BUTTONS).button["id"], 6948)
         self.assertEqual(C.parse("usa golpe siniestro", BUTTONS).button["id"], 5, "the rank in brackets is not said")
         self.assertEqual(C.parse("botón tres", BUTTONS).button, {"number": 3})
+        self.assertEqual(C.parse("golpe", BUTTONS).button["id"], 5, "a unique first word is a short name")
+        self.assertEqual(C.parse("piedra", BUTTONS).button["id"], 6948)
+        self.assertEqual(C.parse("cerrar", BUTTONS).kind, "close")
+        self.assertEqual(C.parse("mira atrás", BUTTONS).kind, "turn_around")
 
     def test_sentences_are_not_orders(self):
         for text in ["para qué sirve esto", "no salta nada", "adelante con la misión de mañana", "", "botón trece"]:
@@ -69,7 +73,7 @@ class Parse(unittest.TestCase):
     def test_misheard_orders_are_close_ordinary_speech_is_not(self):
         for g, f in [("gira a la derecha", "gira de echa"), ("salta", "falta"), ("siguiente objetivo", "siguiente objeto")]:
             self.assertTrue(C.close_enough(g, f), (g, f))
-        for g, f in [("salta", "hola"), ("para", "otra vez"), ("adelante", "vamos a la moneda"), ("izquierda", "que te quiero decir algo"), ("para", "vale")]:
+        for g, f in [("salta", "hola"), ("para", "otra vez"), ("adelante", "vamos a la moneda"), ("izquierda", "que te quiero decir algo"), ("para", "vale"), ("recto", "proyecto")]:
             self.assertFalse(C.close_enough(g, f), (g, f))
 
     def test_buttons_by_sound(self):

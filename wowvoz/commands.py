@@ -48,6 +48,7 @@ for _side, _word in (("left", "izquierda"), ("right", "derecha")):
     })
 # Half a turn needs no side: its own order, so JEV isn't torn between left and right.
 AROUND = ["media vuelta", "date la vuelta", "da la vuelta", "vuelta", "vuelta completa", "gira totalmente",
+          "gira atrás", "gira hacia atrás", "mira atrás", "mira hacia atrás", "date vuelta",
           "gira completamente", "gira del todo", "gira ciento ochenta", "gira ciento ochenta grados", "ciento ochenta grados",
           "giro ciento ochenta", "date media vuelta"]
 DEGREE_WORDS = {"diez": 10, "veinte": 20, "treinta": 30, "cuarenta y cinco": 45, "sesenta": 60, "noventa": 90,
@@ -82,6 +83,7 @@ INTENTS = {
     "assist":       ("ASSISTTARGET", "tap", ["asiste", "objetivo de mi objetivo"], "Assist: target what your target is targeting."),
     "interact":     ("INTERACTTARGET", "tap", ["interactúa", "habla con él", "coge eso", "recoger", "recoge", "coge", "saquea", "saquear", "abre"], "Interact with the target: talk, loot, pick up, open (\"interactúa\", \"recoger\", \"saquea\")."),
     "sit":          ("SITORSTAND", "tap", ["siéntate", "levántate", "sentarse"], "Sit down or stand up."),
+    "close":        ("TOGGLEGAMEMENU", "tap", ["cierra", "cerrar", "cierra eso", "cierra la ventana", "escape"], "Close the open window (Escape): \"cierra\", \"cerrar\"."),
     "map":          ("TOGGLEWORLDMAP", "tap", ["mapa", "abre el mapa", "cierra el mapa"], "Open or close the world map."),
     "bags":         ("TOGGLEBACKPACK", "tap", ["bolsas", "abre las bolsas", "mochila"], "Open or close the bags."),
     "ask_ai":       ("WOWAI_TALK", "ask_ai", [], "A question or request for the AI assistant (WoW AI), usually starting with \"oye IA\" (\"oye IA, ¿qué misión hago?\")."),
@@ -110,6 +112,18 @@ def spoken_name(name: str) -> str:
     return norm(re.sub(r"\(.*?\)", "", name))
 
 
+def short_names(buttons: list[dict]) -> dict[str, dict]:
+    """"golpe" for "Golpe siniestro": a button's first word, when it is long enough,
+    no other button starts with it, and it isn't an order word."""
+    firsts: dict[str, list[dict]] = {}
+    for b in buttons:
+        words = spoken_name(b.get("name") or "").split()
+        if len(words) >= 2 and len(words[0]) >= 4:
+            firsts.setdefault(words[0], []).append(b)
+    taken = {norm(w) for _, _, ws, _ in INTENTS.values() for w in ws for w in w.split()} | set(NUMBERS) | set(CAST_VERBS)
+    return {w: bs[0] for w, bs in firsts.items() if len(bs) == 1 and w not in taken}
+
+
 def phrases(buttons: list[dict]) -> list[str]:
     """Every exact phrase Vosk's grammar accepts (Vosk drops words it doesn't know)."""
     out = []
@@ -127,6 +141,9 @@ def phrases(buttons: list[dict]) -> list[str]:
         if n:
             out.append(n)
             out.extend(f"{v} {n}" for v in CAST_VERBS)
+    for w in short_names(buttons):
+        out.append(w)
+        out.extend(f"{v} {w}" for v in CAST_VERBS)
     out.extend(f"botón {w}" for w in list(NUMBERS)[2:])
     seen, uniq = set(), []
     for p in out:
@@ -152,6 +169,10 @@ def close_enough(grammar: str, free: str, min_ratio: float = 0.75) -> bool:
     from difflib import SequenceMatcher
     g, f = norm(grammar), norm(free)
     if not g or not f or abs(len(g.split()) - len(f.split())) > 1:
+        return False
+    # One word against one word: only the same length give or take a letter
+    # ("falta"/"salta" yes, "proyecto"/"recto" no).
+    if len(g.split()) == 1 and len(f.split()) == 1 and abs(len(g) - len(f)) > 1:
         return False
     return SequenceMatcher(None, g, f).ratio() >= min_ratio
 
@@ -231,6 +252,9 @@ def parse(text: str, buttons: list[dict]) -> Order | None:
         if not n:
             continue
         if t == n or any(t == f"{v} {n}" for v in CAST_VERBS):
+            return Order("button", button=b, text=text)
+    for w, b in short_names(buttons).items():
+        if t == w or any(t == f"{v} {w}" for v in CAST_VERBS):
             return Order("button", button=b, text=text)
     return None
 
