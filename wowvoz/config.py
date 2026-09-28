@@ -4,8 +4,16 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
-HOME = os.environ.get("WOWVOZ_HOME") or os.path.expanduser("~/.local/share/wow-voz")  # venv and Vosk models
+# The venv and the Vosk models (where install.sh / install.ps1 put them).
+if sys.platform.startswith("win"):
+    _DATA = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "wow-voz")
+elif sys.platform == "darwin":
+    _DATA = os.path.expanduser("~/Library/Application Support/wow-voz")
+else:
+    _DATA = os.path.expanduser("~/.local/share/wow-voz")
+HOME = os.environ.get("WOWVOZ_HOME") or _DATA
 CONFIG_FILE = os.path.expanduser("~/.config/wow-voz/config.json")
 
 # Where the game keeps the WoW Voz addon's notes (the most recent one found is used).
@@ -16,20 +24,27 @@ SAVED_VARIABLES = [
     f"~/.steam/steam/steamapps/compatdata/*/pfx/{_WOW}",     # Steam / Proton
     f"~/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
     f"~/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/*/pfx/{_WOW}",
+    # Windows and macOS: the game's own install
+    "C:/Program Files (x86)/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
+    "C:/Program Files/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
+    "/Applications/World of Warcraft/_*_/WTF/Account/*/SavedVariables/WoWVoz.lua",
 ]
 
 DEFAULTS = {
     # Language: "es", "en", or "auto" (the game's language, then the desktop's).
     "language": "auto",
     # Recognition: the Vosk model for the language, from voskDir (or voskModel, a path, to pick one).
-    "voskDir": f"{HOME}/vosk",
+    "voskDir": os.path.join(HOME, "vosk"),
     "voskModel": "",
     # JEV (optional): OPENROUTER_API_KEY, or a file with an OPENROUTER_API_KEY=... line.
     "jevKeyFile": "~/.config/wow-voz/openrouter.env",
     "jevTimeout": 2.5,
     "jevMinConfidence": 0.8,
     "nearMatch": 0.75,  # how alike Vosk's closed-list guess and its free transcript must sound
-    # Microphone and phrases
+    # Microphone and phrases. "microphone": "auto" (arecord on Linux, sounddevice elsewhere),
+    # "arecord" or "sounddevice"; "inputDevice": a sounddevice device name or number (null: the default).
+    "microphone": "auto",
+    "inputDevice": None,
     "recordCommand": ["arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "raw"],
     "threshold": 700,
     "silenceMs": 360,
@@ -56,7 +71,7 @@ DEFAULTS = {
     "learnTimeout": 240,
     # Follow the WoW Voz addon's on/off button (a marker in the game's top-right corner).
     "gameSwitch": True,
-    "playCommand": ["pw-play"],
+    "playCommand": [],  # empty: pw-play / paplay / aplay on Linux, winsound on Windows, afplay on macOS
     "log": "~/.cache/wow-voz/wow-voz.log",
 }
 

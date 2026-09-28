@@ -13,10 +13,7 @@
 from __future__ import annotations
 
 import argparse
-import glob
 import os
-import re
-import subprocess
 import sys
 import time
 import wave
@@ -25,22 +22,11 @@ from . import commands as C
 from . import config
 from . import lang
 from .actions import Actions
-from .game import Focus, find_saved_variables, load_keymap
-from .keyboard import DryKeyboard, Keyboard, XKeymap
+from .game import find_saved_variables, load_keymap
+from .keyboard import DryKeyboard
+from .platforms import current as current_system
 from .beeps import Beeps
 from .listen import FRAME_BYTES, Phrases, microphone, other_listener_active
-
-
-def x_display() -> None:
-    """Point DISPLAY/XAUTHORITY at GNOME's Xwayland, where WoW (under Wine) lives."""
-    if not os.environ.get("DISPLAY"):
-        out = subprocess.run(["pgrep", "-a", "Xwayland"], capture_output=True, text=True).stdout
-        m = re.search(r"Xwayland (:\d+)", out)
-        os.environ["DISPLAY"] = m.group(1) if m else ":0"
-    if not os.environ.get("XAUTHORITY"):
-        auth = sorted(glob.glob(f"/run/user/{os.getuid()}/.mutter-Xwaylandauth.*"), key=os.path.getmtime, reverse=True)
-        if auth:
-            os.environ["XAUTHORITY"] = auth[0]
 
 
 def make_log(path: str):
@@ -78,7 +64,7 @@ def calibrate(cfg: dict, path: str) -> int:
 
     def levels(seconds: float) -> list[float]:
         out = []
-        for fr in microphone(cfg["recordCommand"]):
+        for fr in microphone(cfg):
             out.append(rms(fr))
             if len(out) * 0.03 >= seconds:
                 break
@@ -127,7 +113,8 @@ def main() -> int:
     if args.paused:
         cfg["startPaused"] = True
     log = make_log(cfg["log"])
-    x_display()
+    system = current_system()
+    system.setup()
 
     keymap = load_keymap(cfg["savedVariables"])
     C.set_language(lang.pick(cfg.get("language", "auto"), keymap.locale))
@@ -167,14 +154,14 @@ def main() -> int:
         return 0
 
     try:
-        xk = XKeymap()
+        xk = system.Keymap()
+        kb = DryKeyboard(log) if args.dry_run else system.Keyboard()
     except OSError as e:
-        log(f"no X keyboard map ({e}); run it inside the desktop session")
+        log(f"no keyboard for the game ({e}); on Linux run it inside the desktop session, with /dev/uinput writable")
         return 2
-    kb = DryKeyboard(log) if args.dry_run else Keyboard()
     from .learn import MissLog
     misses = MissLog()
-    focus = Focus(cfg["windowName"])
+    focus = system.Focus(cfg["windowName"])
     acts = Actions(kb, keymap, xk, focus, cfg, log)
     log(f"wow-voz listening, in {C.L.NAME}{' (dry run)' if args.dry_run else ''}{' - paused, say \"voz activa\"' if acts.paused else ''}")
     log(f"key map: {keymap.source}; {len(rec.buttons)} named buttons")
@@ -195,8 +182,7 @@ def main() -> int:
     if cfg.get("gameSwitch", True):
         def watch_switch():
             try:
-                from .screen import Switch
-                sw = Switch(cfg.get("windowName", "World of Warcraft").strip("^$"))
+                sw = system.Switch(cfg.get("windowName", "World of Warcraft").strip("^$"))
             except OSError as e:
                 log(f"in-game switch unavailable: {e}")
                 return
@@ -213,9 +199,10 @@ def main() -> int:
                 time.sleep(0.5)
         threading.Thread(target=watch_switch, daemon=True).start()
 
-    # Outside the game: `wow-voz-toggle` (systemctl --user kill -s USR1 wow-voz).
+    # Outside the game: `wow-voz-toggle` (systemctl --user kill -s USR1 wow-voz; not on Windows).
     import signal
-    signal.signal(signal.SIGUSR1, lambda *_: set_on(acts.paused, "wow-voz-toggle"))
+    if hasattr(signal, "SIGUSR1"):
+        signal.signal(signal.SIGUSR1, lambda *_: set_on(acts.paused, "wow-voz-toggle"))
     phrases = Phrases(float(cfg["threshold"]), int(cfg["silenceMs"]), int(cfg["maxPhraseMs"]))
     sv_mtime = 0.0
     last_check = 0.0
@@ -225,7 +212,7 @@ def main() -> int:
     frames: queue.Queue = queue.Queue(maxsize=2000)
 
     def reader():
-        for fr in microphone(cfg["recordCommand"]):
+        for fr in microphone(cfg):
             try:
                 frames.put_nowait(fr)
             except queue.Full:

@@ -428,3 +428,79 @@ class AliasesAndLearning(unittest.TestCase):
                 recs = [json.loads(line) for line in f]
             self.assertEqual([r["type"] for r in recs], ["miss", "follow"])
             self.assertEqual(recs[1]["order"], "turn_left")
+
+
+class OtherSystems(unittest.TestCase):
+    """Windows and macOS key handling, against stand-ins for their system calls."""
+
+    def test_windows_layout_modifiers_and_order(self):
+        from wowvoz.keyboard import resolve
+        from wowvoz.platforms import windows as W
+
+        class User32:
+            sent = []
+
+            def MapVirtualKeyW(self, vk, kind):
+                return vk + 0x100
+
+            def VkKeyScanW(self, ch):  # a Spanish layout: "=" is Shift+0, "@" is AltGr+2
+                return {ord("="): 0x0130, ord("@"): 0x0632, ord("w"): 0x0057}.get(ch, -1)
+
+            def SendInput(self, n, ref, size):
+                ki = ref._obj.u.ki
+                self.sent.append((ki.wVk, bool(ki.dwFlags & W.KEYEVENTF_KEYUP)))
+                return 1
+
+        u = User32()
+        km = W.Keymap(u)
+        self.assertEqual(resolve("W", km), [(0x57, 0x157, False)])
+        self.assertEqual([c[0] for c in resolve("=", km)], [0xA0, 0x30])            # Shift + 0
+        self.assertEqual([c[0] for c in resolve("SHIFT-=", km)], [0xA0, 0x30])      # Shift once
+        self.assertEqual([c[0] for c in resolve("@", km)], [0xA2, 0xA5, 0x32])      # AltGr = Ctrl + right Alt
+        self.assertEqual(resolve("NUMPADDIVIDE", km)[0][2], True)                    # extended key
+        self.assertEqual(ctypes_size_ok(W), True)
+        kb = W.Keyboard(u)
+        kb.press(resolve("CTRL-SHIFT-F12", km), tap=0)
+        self.assertEqual(u.sent, [(0xA2, False), (0xA0, False), (0x7B, False), (0x7B, True), (0xA0, True), (0xA2, True)])
+        with self.assertRaises(Unsupported):
+            resolve("PAD1", km)
+
+    def test_macos_keys_carry_the_held_modifiers(self):
+        from wowvoz.keyboard import resolve
+        from wowvoz.platforms import macos as M
+
+        class Quartz:
+            events = []
+
+            def CGEventCreateKeyboardEvent(self, src, code, down):
+                self.events.append([code, down, None])
+                return len(self.events)
+
+            def CGEventSetFlags(self, ev, flags):
+                self.events[ev - 1][2] = flags
+
+            def CGEventPost(self, tap, ev):
+                pass
+
+            def CFRelease(self, ev):
+                pass
+
+        q = Quartz()
+        km = M.Keymap()
+        codes = resolve("CTRL-SHIFT-F12", km)
+        self.assertEqual([c[0] for c in codes], [0x3B, 0x38, 0x6F])
+        M.Keyboard(q).press(codes, tap=0)
+        f12_down = next(e for e in q.events if e[0] == 0x6F and e[1])
+        self.assertEqual(f12_down[2], 0x00040000 | 0x00020000)                      # Ctrl + Shift held
+        self.assertEqual(q.events[-1], [0x3B, False, 0])                             # all released
+        self.assertEqual(resolve("W", km), [(0x0D, 0)])
+
+    def test_system_by_platform(self):
+        from wowvoz import platforms
+        self.assertIn(platforms.name(), ("linux", "windows", "macos"))
+
+
+def ctypes_size_ok(W):
+    """INPUT must be as big as Windows' (40 bytes on 64-bit, 28 on 32-bit)."""
+    import ctypes
+    return ctypes.sizeof(W.INPUT) in (40, 28)

@@ -1,0 +1,12 @@
+[Unit]
+Description=wow-voz: play WoW guided by your voice (presses the keys you say)
+After=pipewire.service graphical-session.target
+
+[Service]
+WorkingDirectory=@REPO@
+ExecStart=@PYTHON@ -m wowvoz
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

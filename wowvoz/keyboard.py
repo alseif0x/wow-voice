@@ -1,6 +1,7 @@
 """A virtual keyboard: the keys wow-voz presses, as if typed on a real one.
 
-It creates a keyboard device through /dev/uinput. The desktop sees it as one
+This is the Linux one (Windows and macOS: platforms/windows.py, platforms/macos.py,
+same interface). It creates a keyboard device through /dev/uinput. The desktop sees it as one
 more keyboard and sends its keys to the focused window, so it does exactly what
 your hands would. Key names are WoW's binding names ("W", "SPACE", "SHIFT-1",
 "NUMLOCK", "-"); they are turned into keycodes through the X keyboard map of the
@@ -91,6 +92,14 @@ class XKeymap:
         if not self.dpy:
             raise OSError(f"cannot open X display {display or os.environ.get('DISPLAY')}")
 
+    def code_for(self, name: str) -> tuple[int, list[int]]:
+        """A WoW key name -> (keycode, extra modifier keycodes this layout needs for it)."""
+        code, extra = self.lookup(keysym_for(name))
+        return code, [extra] if extra is not None else []
+
+    def modifier(self, mod: str) -> int:
+        return MODIFIERS[mod]
+
     def lookup(self, keysym: int | str) -> tuple[int, int | None]:
         sym = keysym if isinstance(keysym, int) else self.x.XStringToKeysym(keysym.encode())
         if not sym:
@@ -105,13 +114,17 @@ class XKeymap:
         return kc - 8, None
 
 
-def resolve(key: str, keymap: XKeymap) -> list[int]:
-    """A WoW binding -> the evdev codes to hold together (modifiers first, key last)."""
+def resolve(key: str, keymap) -> list:
+    """A WoW binding -> the key codes to hold together (modifiers first, key last).
+    `keymap` is this system's (XKeymap here; platforms/windows.py, platforms/macos.py)."""
     mods, name = split_binding(key)
-    code, extra = keymap.lookup(keysym_for(name))
-    codes = [MODIFIERS[m] for m in mods]
-    if extra is not None and extra not in codes:
-        codes.append(extra)
+    if name.startswith(("BUTTON", "MOUSEWHEEL", "PAD")):
+        raise Unsupported(f"{name} is a mouse or gamepad button")
+    code, extras = keymap.code_for(name)
+    codes = [keymap.modifier(m) for m in mods]
+    for extra in extras:
+        if extra not in codes:
+            codes.append(extra)
     codes.append(code)
     return codes
 

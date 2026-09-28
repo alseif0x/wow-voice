@@ -1,6 +1,6 @@
 """The microphone, cut into phrases.
 
-arecord streams 16 kHz mono; an energy VAD marks a phrase from the first 90 ms
+arecord (Linux) or sounddevice (Windows, macOS) streams 16 kHz mono; an energy VAD marks a phrase from the first 90 ms
 of voice to the first `silenceMs` of quiet (short, so orders are quick), with a
 little audio kept from before it started, and never longer than `maxPhraseMs`.
 """
@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import math
 import os
+import shutil
 import struct
 import subprocess
+import sys
 from collections import deque
 
 RATE = 16000
@@ -58,8 +60,20 @@ class Phrases:
         return None
 
 
-def microphone(cmd: list[str]):
-    """Yield FRAME_BYTES frames from the recording command until it ends."""
+def microphone(cfg: dict):
+    """Yield FRAME_BYTES frames of 16 kHz mono audio: from arecord on Linux (when
+    it is there), from sounddevice (PortAudio) anywhere else. "microphone" in the
+    config picks one: "auto", "arecord" or "sounddevice"."""
+    how = cfg.get("microphone", "auto")
+    if how == "auto":
+        how = "arecord" if sys.platform.startswith("linux") and shutil.which("arecord") else "sounddevice"
+    if how == "arecord":
+        yield from _command(cfg["recordCommand"])
+    else:
+        yield from _sounddevice(cfg.get("inputDevice"))
+
+
+def _command(cmd: list[str]):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         while True:
@@ -69,6 +83,23 @@ def microphone(cmd: list[str]):
             yield frame
     finally:
         p.kill()
+
+
+def _sounddevice(device=None):
+    import queue
+
+    import sounddevice as sd
+    q: queue.Queue = queue.Queue(maxsize=400)
+
+    def got(data, frames, when, status):
+        try:
+            q.put_nowait(bytes(data))
+        except queue.Full:
+            pass
+    with sd.RawInputStream(samplerate=RATE, channels=1, dtype="int16", blocksize=FRAME_BYTES // 2,
+                           device=device, callback=got):
+        while True:
+            yield q.get()
 
 
 def other_listener_active(flag_file: str) -> bool:

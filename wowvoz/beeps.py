@@ -7,7 +7,6 @@ from __future__ import annotations
 import math
 import os
 import struct
-import subprocess
 import time
 import wave
 
@@ -38,8 +37,10 @@ def _write(path: str, tones) -> None:
 
 class Beeps:
     def __init__(self, cfg: dict):
+        from .platforms import current
         self.on = bool(cfg.get("beeps", True))
-        self.cmd = list(cfg.get("playCommand") or ["pw-play"])
+        self.cmd = list(cfg.get("playCommand") or [])  # empty: this system's usual player
+        self.system = current()
         self.dir = os.path.expanduser("~/.cache/wow-voz")
         self.last: dict[str, float] = {}
         os.makedirs(self.dir, exist_ok=True)
@@ -53,7 +54,4 @@ class Beeps:
         if every and now - self.last.get(name, -1e9) < every:
             return
         self.last[name] = now
-        try:
-            subprocess.Popen(self.cmd + [os.path.join(self.dir, f"{name}.wav")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            pass
+        self.system.play(os.path.join(self.dir, f"{name}.wav"), self.cmd or None)

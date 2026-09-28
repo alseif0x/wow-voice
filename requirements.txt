@@ -1,0 +1,6 @@
+vosk>=0.3.45
+# The microphone outside Linux (Linux uses arecord; sounddevice works there too).
+sounddevice>=0.4.6; sys_platform != "linux"
+# macOS: the frontmost app and the in-game on/off button.
+pyobjc-framework-Cocoa>=10; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10; sys_platform == "darwin"

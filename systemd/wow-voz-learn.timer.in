@@ -1,5 +1,5 @@
 [Unit]
-Description=wow-voz-learn cada hora
+Description=wow-voz-learn every hour
 
 [Timer]
 OnCalendar=hourly

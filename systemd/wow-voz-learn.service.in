@@ -1,0 +1,8 @@
+[Unit]
+Description=wow-voz-learn: review misheard voice orders and learn clear aliases
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPO@
+ExecStart=@PYTHON@ -m wowvoz.learn
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
