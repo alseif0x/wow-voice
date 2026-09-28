@@ -27,6 +27,7 @@ class Actions:
         self.q: queue.Queue[Order] = queue.Queue()
         self.stop_event = threading.Event()
         self.autorun = False
+        self.walking = False  # WoW starts every session running
         self.paused = bool(cfg.get("startPaused", False))
         self.worker = threading.Thread(target=self._run, daemon=True)
         self.worker.start()
@@ -139,6 +140,12 @@ class Actions:
             self.kb.hold(chord, secs, self.stop_event)
             if o.kind in ("forward", "back"):
                 self.autorun = False  # walking by hand ends autorun
+        elif how in ("walkmode", "runmode"):
+            # One key toggles walk/run: press it only when it changes something.
+            want_walk = how == "walkmode"
+            if self.walking != want_walk:
+                self.kb.press(chord)
+                self.walking = want_walk
         elif how == "turn":
             # Keyboard turning in WoW is 180 degrees a second.
             deg = max(5.0, min(float(o.degrees or c.get("turnDegrees", 45)), 180.0))

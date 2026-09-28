@@ -28,6 +28,8 @@ class Parse(unittest.TestCase):
             "gira a la derecha": ("turn_right", 1), "media vuelta": ("turn_left", 1),
             "corre": ("autorun", 1), "caminar automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
+            "camina lento": ("walk", 1), "a correr": ("run", 1),
+            "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "asiste": ("assist", 1),
             "vale, salta": ("jump", 1),
         }
         for text, (kind, count) in cases.items():
@@ -105,6 +107,11 @@ def run_orders(orders, focus=True, cfg=None, keymap=None):
 
 
 class Doing(unittest.TestCase):
+    def test_walk_and_run_press_the_toggle_only_when_it_changes(self):
+        ev, acts = run_orders([C.Order("walk"), C.Order("walk"), C.Order("run"), C.Order("run")])
+        self.assertEqual(sum(1 for e in ev if e[0] == "press"), 2)
+        self.assertFalse(acts.walking)
+
     def test_turn_time_follows_the_degrees(self):
         ev, _ = run_orders([C.Order("turn_left", degrees=45), C.Order("turn_right", degrees=180), C.Order("turn_left", degrees=999)],
                            cfg={"turnDegreesPerSecond": 180})

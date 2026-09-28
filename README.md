@@ -25,6 +25,8 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 
 **Teclas.** El teclado virtual es un dispositivo `/dev/uinput`, igual que el mando virtual de Sunshine. El escritorio lo trata como un teclado más y las teclas van a la ventana activa. Las teclas se resuelven con tu distribución de teclado, así que "-" o "º" caen donde tu teclado español los tiene.
 
+**Órdenes sin tecla propia** (el foco no tiene atajo por defecto, y Forever no tiene marco de foco, aunque `/focus` funciona): el addon crea un botón de macro seguro para cada una y lo asocia a una tecla que no uses, como Ctrl+Mayús+F9. La asociación dura solo la sesión y nunca se guarda en tus atajos. Como la pulsación es real, funcionan también en combate.
+
 **Qué tecla hace qué.** El addon **WoW Voz** (`addon/WoWVoz`) solo lee: apunta tus atajos reales (moverse, saltar, caminar automático, objetivo...) y qué hechizo, objeto o macro hay en cada botón de las barras, con su tecla. El juego lo guarda en disco al hacer `/reload` o al salir, y wow-voz lo recarga solo. Sin él se usan las teclas por defecto de WoW (W A S D Q E, Espacio, Bloq Num, Tab, 1–0 - =).
 
 ## Órdenes
@@ -37,6 +39,9 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 | media vuelta · date la vuelta · gira a la derecha treinta grados | 180° · los grados que digas |
 | paso a la izquierda · de lado a la derecha | Q / E (paso lateral, sin girar) |
 | corre · caminar automático · sigue recto · todo recto | Bloq Num |
+| camina lento · despacio · anda despacio / a correr · corre rápido | Alterna andar/correr (solo si cambia algo) |
+| pon el foco · focus / vuelve al foco / quita el foco / asiste al foco | `/focus` · `/target focus` · `/clearfocus` · `/assist focus` |
+| asiste | Objetivo de tu objetivo |
 | para · alto · quieto | Suelta todo y corta el caminar automático |
 | siguiente objetivo · objetivo amigo | Tab / objetivo aliado |
 | interactúa · siéntate · mapa · bolsas | Sus atajos |

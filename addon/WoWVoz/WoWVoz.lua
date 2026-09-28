@@ -12,7 +12,7 @@ local ADDON = ...
 -- The binding commands wow-voz uses, besides the action bar buttons.
 local COMMANDS = {
 	"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT",
-	"JUMP", "TOGGLEAUTORUN", "SITORSTAND", "TARGETNEARESTENEMY", "TARGETNEARESTFRIEND",
+	"JUMP", "TOGGLEAUTORUN", "TOGGLERUN", "SITORSTAND", "TARGETNEARESTENEMY", "TARGETNEARESTFRIEND",
 	"INTERACTTARGET", "ASSISTTARGET", "FOLLOWTARGET", "TOGGLEWORLDMAP", "TOGGLEBACKPACK",
 }
 
@@ -45,6 +45,50 @@ local function ActionName(kind, id)
 	if kind == "macro" then return (Try(GetMacroInfo, id)) end
 end
 
+---------------------------------------------------------------------------
+-- Voice keys: things with no key of their own (focus has none by default, and
+-- Forever has no focus frame, but /focus works). Each is a secure macro button
+-- clicked through a key nobody uses, bound only for this session as an override
+-- (never written into the player's bindings). wow-voz reads which key is which
+-- from the snapshot. A real key press runs them, so they work in combat too.
+---------------------------------------------------------------------------
+
+local VOICE = {
+	{ id = "WOWVOZ_FOCUS", macro = "/focus" },
+	{ id = "WOWVOZ_TARGETFOCUS", macro = "/target focus" },
+	{ id = "WOWVOZ_CLEARFOCUS", macro = "/clearfocus" },
+	{ id = "WOWVOZ_ASSISTFOCUS", macro = "/assist focus" },
+}
+local CANDIDATES = {}
+for _, mods in ipairs({ "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-" }) do
+	for n = 9, 12 do table.insert(CANDIDATES, mods .. "F" .. n) end
+end
+local voiceOwner = CreateFrame("Frame", "WoWVozKeys", UIParent)
+local voiceKeys = {}
+
+local function SetupVoiceKeys()
+	if InCombatLockdown() then return false end
+	ClearOverrideBindings(voiceOwner)
+	wipe(voiceKeys)
+	local taken = {}
+	for _, v in ipairs(VOICE) do
+		local b = _G[v.id] or CreateFrame("Button", v.id, UIParent, "SecureActionButtonTemplate")
+		b:SetAttribute("type", "macro")
+		b:SetAttribute("macrotext", v.macro)
+		b:RegisterForClicks("AnyDown", "AnyUp")
+		for _, key in ipairs(CANDIDATES) do
+			local action = Try(GetBindingAction, key)
+			if not taken[key] and (action == nil or action == "") then
+				SetOverrideBindingClick(voiceOwner, true, key, v.id, "LeftButton")
+				taken[key] = true
+				voiceKeys[v.id] = key
+				break
+			end
+		end
+	end
+	return true
+end
+
 local function Snapshot()
 	WoWVozDB = type(WoWVozDB) == "table" and WoWVozDB or {}
 	local d = { time = time(), character = (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?"), bindings = {}, buttons = {} }
@@ -52,6 +96,7 @@ local function Snapshot()
 		local keys = Keys(c)
 		if #keys > 0 then d.bindings[c] = keys end
 	end
+	for id, key in pairs(voiceKeys) do d.bindings[id] = { key } end
 	for _, bar in ipairs(BARS) do
 		for i = 1, 12 do
 			local slot = bar.first + i - 1
@@ -91,7 +136,16 @@ local f = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "ACTIONBAR_SLOT_CHANGED", "UPDATE_BINDINGS", "SPELLS_CHANGED" }) do
 	pcall(f.RegisterEvent, f, e)
 end
-f:SetScript("OnEvent", function() Soon() end)
+pcall(f.RegisterEvent, f, "PLAYER_REGEN_ENABLED")
+local keysReady = false
+f:SetScript("OnEvent", function(_, event)
+	if not keysReady and (event == "PLAYER_LOGIN" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD") then
+		keysReady = SetupVoiceKeys()
+	elseif event == "UPDATE_BINDINGS" and not InCombatLockdown() then
+		SetupVoiceKeys() -- the player changed bindings: pick free keys again
+	end
+	Soon()
+end)
 
 ---------------------------------------------------------------------------
 -- On / off: a button, a key binding and /wowvoz. wow-voz can't hear the addon,
