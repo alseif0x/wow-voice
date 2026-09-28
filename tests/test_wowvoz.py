@@ -61,6 +61,12 @@ class Parse(unittest.TestCase):
         for text in ["para qué sirve esto", "no salta nada", "adelante con la misión de mañana", "", "botón trece"]:
             self.assertIsNone(C.parse(text, BUTTONS), text)
 
+    def test_misheard_orders_are_close_ordinary_speech_is_not(self):
+        for g, f in [("gira a la derecha", "gira de echa"), ("salta", "falta"), ("siguiente objetivo", "siguiente objeto")]:
+            self.assertTrue(C.close_enough(g, f), (g, f))
+        for g, f in [("salta", "hola"), ("para", "otra vez"), ("adelante", "vamos a la moneda"), ("izquierda", "que te quiero decir algo"), ("para", "vale")]:
+            self.assertFalse(C.close_enough(g, f), (g, f))
+
     def test_every_grammar_phrase_parses(self):
         for p in C.phrases(BUTTONS):
             self.assertIsNotNone(C.parse(p, BUTTONS), p)

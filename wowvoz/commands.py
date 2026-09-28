@@ -126,6 +126,17 @@ def phrases(buttons: list[dict]) -> list[str]:
     return uniq
 
 
+def close_enough(grammar: str, free: str, min_ratio: float = 0.75) -> bool:
+    """Vosk's closed-list guess and its free transcript sound alike ("gira a la
+    derecha" / "gira de echa", "salta" / "falta"): the order is taken. Ordinary
+    speech is far from any order phrase ("hola" / "salta" is 0.22)."""
+    from difflib import SequenceMatcher
+    g, f = norm(grammar), norm(free)
+    if not g or not f or abs(len(g.split()) - len(f.split())) > 1:
+        return False
+    return SequenceMatcher(None, g, f).ratio() >= min_ratio
+
+
 def _number_in(words: list[str]) -> int | None:
     for w in words:
         if w in NUMBERS:

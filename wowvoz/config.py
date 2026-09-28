@@ -18,7 +18,8 @@ DEFAULTS = {
     "jevKeyFile": "~/.config/rustic-os/openrouter.env",
     "jevTimeout": 2.5,
     "jevMinConfidence": 0.8,
-    "jevMinConfidenceWhisper": 0.9,  # after Whisper (the phrase was already hard to hear)
+    "jevMinConfidenceWhisper": 0.9,
+    "nearMatch": 0.75,  # how alike Vosk's closed-list guess and its free transcript must sound  # after Whisper (the phrase was already hard to hear)
     # Microphone and phrases
     "recordCommand": ["arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "raw"],
     "threshold": 700,

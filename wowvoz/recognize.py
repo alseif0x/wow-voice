@@ -86,6 +86,12 @@ class Recognizer:
             if o:
                 o.via = "vosk"
                 return o, heard
+        # Not word for word, but sounding the same: a misheard order.
+        if g and g != "[unk]" and f and C.close_enough(g, f, float(self.cfg.get("nearMatch", 0.75))):
+            o = C.parse(g, self.buttons)
+            if o:
+                o.via = "vosk~"
+                return o, heard
         # A free phrase: exact after all? ("vale, salta" with a filler word)
         if f:
             o = C.parse(f, self.buttons)
