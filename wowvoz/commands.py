@@ -46,23 +46,26 @@ for _side, _word in (("left", "izquierda"), ("right", "derecha")):
         f"gira a la {_word}": (_side, 90), f"gira {_word}": (_side, 90), f"gira hacia la {_word}": (_side, 90),
         f"mucho a la {_word}": (_side, 135), f"gira mucho a la {_word}": (_side, 135), f"muy a la {_word}": (_side, 135),
     })
-for _p in ("media vuelta", "date la vuelta", "da la vuelta", "vuelta"):
-    TURNS[_p] = ("left", 180)
+# Half a turn needs no side: its own order, so JEV isn't torn between left and right.
+AROUND = ["media vuelta", "date la vuelta", "da la vuelta", "vuelta", "vuelta completa", "gira totalmente",
+          "gira completamente", "gira del todo", "gira ciento ochenta", "gira ciento ochenta grados", "ciento ochenta grados",
+          "giro ciento ochenta", "date media vuelta"]
 DEGREE_WORDS = {"diez": 10, "veinte": 20, "treinta": 30, "cuarenta y cinco": 45, "sesenta": 60, "noventa": 90,
                 "ciento veinte": 120, "ciento ochenta": 180}
 
 # id -> (binding command or None, how it is done, Spanish phrases, JEV criteria)
 INTENTS = {
     "jump":         ("JUMP", "tap", ["salta", "salto", "brinca"], "Jump (\"salta\", \"dale un salto\")."),
-    "forward":      ("MOVEFORWARD", "hold", ["adelante", "avanza", "camina", "hacia adelante"], "Walk forward for a moment (\"adelante\", \"avanza un poco\")."),
+    "forward":      ("MOVEFORWARD", "hold", ["adelante", "avanza", "hacia adelante", "un paso adelante"], "Walk forward for a moment (\"adelante\", \"avanza un poco\")."),
     "back":         ("MOVEBACKWARD", "hold", ["atrás", "retrocede", "hacia atrás", "marcha atrás"], "Walk backward for a moment (\"atrás\", \"retrocede\")."),
     "strafe_left":  ("STRAFELEFT", "hold", ["paso a la izquierda", "de lado a la izquierda", "lateral izquierda"], "Step sideways to the left, without turning (\"paso a la izquierda\")."),
     "strafe_right": ("STRAFERIGHT", "hold", ["paso a la derecha", "de lado a la derecha", "lateral derecha"], "Step sideways to the right, without turning (\"paso a la derecha\")."),
     "turn_left":    ("TURNLEFT", "turn", [p for p, (d, _) in TURNS.items() if d == "left"], "Turn to the left, a little or a lot (\"izquierda\", \"gira a la izquierda\", \"media vuelta\")."),
     "turn_right":   ("TURNRIGHT", "turn", [p for p, (d, _) in TURNS.items() if d == "right"], "Turn to the right, a little or a lot (\"derecha\", \"gira a la derecha\")."),
-    "autorun":      ("TOGGLEAUTORUN", "tap", ["corre", "caminar automático", "correr automático", "camina solo", "auto correr", "sigue recto", "todo recto", "sigue adelante", "recto"], "Switch autorun on or off: keep going straight ahead on its own (\"corre\", \"caminar automático\", \"sigue recto\", \"todo recto\")."),
-    "walk":         ("TOGGLERUN", "walkmode", ["camina lento", "anda despacio", "despacio", "modo andar", "camina despacio"], "Switch to walking slowly instead of running (\"camina lento\", \"despacio\")."),
-    "run":          ("TOGGLERUN", "runmode", ["a correr", "corre rápido", "modo correr", "deja de andar despacio"], "Switch back to running after walking slowly (\"a correr\", \"corre rápido\")."),
+    "turn_around":  ("TURNLEFT", "turn", AROUND, "Turn around to face the other way, 180 degrees, no side needed (\"media vuelta\", \"gira 180 grados\", \"gira totalmente\")."),
+    "autorun":      ("TOGGLEAUTORUN", "tap", ["caminar automático", "camina automático", "correr automático", "automático", "auto", "camina solo", "sigue recto", "todo recto", "sigue adelante", "recto"], "Switch autorun on or off: keep going straight ahead on its own (\"caminar automático\", \"automático\", \"sigue recto\")."),
+    "walk":         ("TOGGLERUN", "walkmode", ["andar", "anda", "camina", "caminar", "a caminar", "a andar", "camina lento", "anda despacio", "despacio", "modo andar", "camina despacio", "más despacio", "ve despacio"], "Switch to walking (slow) instead of running: caminar / andar mean walking (\"andar\", \"camina\", \"despacio\")."),
+    "run":          ("TOGGLERUN", "runmode", ["corre", "correr", "a correr", "corre rápido", "camina rápido", "anda rápido", "más rápido", "rápido", "modo correr"], "Switch to running (fast) instead of walking: correr means running (\"corre\", \"correr\", \"camina rápido\")."),
     "stop":         (None, "stop", ["para", "alto", "quieto", "detente", "stop", "frena"], "Stop moving: stop walking, running or autorun (\"para\", \"alto\")."),
     "target":       ("TARGETNEARESTENEMY", "tap", ["siguiente objetivo", "objetivo", "cambia de objetivo", "otro enemigo"], "Target the next nearest enemy (\"siguiente objetivo\")."),
     "target_friend": ("TARGETNEARESTFRIEND", "tap", ["objetivo amigo", "aliado"], "Target the nearest friendly character."),
@@ -180,9 +183,17 @@ def parse(text: str, buttons: list[dict]) -> Order | None:
     if m:
         n = NUMBERS.get(m.group(1)) or (int(m.group(1)) if m.group(1).isdigit() else None)
         return Order("button", button={"number": n}, text=text) if n and 1 <= n <= 12 else None
+    for p in AROUND:
+        if t == norm(p):
+            return Order("turn_around", degrees=180.0, text=text)
+    if re.fullmatch(r"(?:gira |giro )?180(?: grados)?", t):
+        return Order("turn_around", degrees=180.0, text=text)
     for p, (side, deg) in TURNS.items():
         if t == norm(p):
             return Order("turn_left" if side == "left" else "turn_right", degrees=float(deg), text=text)
+    m = re.fullmatch(r"(?:gira |giro )?(?:a la |hacia la )?(izquierda|derecha) (\d{1,3})(?: grados)?", t)
+    if m and 5 <= int(m.group(2)) <= 180:
+        return Order("turn_left" if m.group(1) == "izquierda" else "turn_right", degrees=float(m.group(2)), text=text)
     m = re.fullmatch(r"(?:gira )?(?:a la |hacia la )?(izquierda|derecha) (.+) grados", t)
     if m and norm(m.group(2)) in {norm(k): v for k, v in DEGREE_WORDS.items()}:
         deg = {norm(k): v for k, v in DEGREE_WORDS.items()}[norm(m.group(2))]
@@ -253,13 +264,16 @@ def order_from_jev(answer: dict, opts: dict, utterance: str, min_conf: float) ->
     if how == "hold" and n and ("segundos" in words or "segundo" in words):
         o.seconds = float(n)
     if how == "turn":
-        o.degrees = turn_degrees(words)
+        o.degrees = 180.0 if choice == "turn_around" else turn_degrees(words)
     return o
 
 
 def turn_degrees(words: list[str]) -> float:
     """How far a free phrase says to turn: "un poco" 20, "gira" 90, "mucho" 135, "vuelta" 180, "N grados", else 45."""
     t = " ".join(words)
+    for w in words:
+        if w.isdigit() and 5 <= int(w) <= 180:
+            return float(w)
     for k, v in sorted(DEGREE_WORDS.items(), key=lambda kv: -len(kv[0])):
         if f"{norm(k)} grados" in t:
             return float(v)

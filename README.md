@@ -36,10 +36,10 @@ micrófono ──► frase ──► Vosk (lista cerrada) ─┐
 | salta · salta dos/tres veces · brinca | Espacio (hasta 5 veces) |
 | adelante · avanza · atrás · retrocede (+ "tres" = 3 s) | W / S un momento (1 s; máximo 5 s) |
 | un poco a la izquierda · izquierda · gira a la izquierda · mucho a la izquierda | Gira ~20° · ~45° · ~90° · ~135° (igual a la derecha) |
-| media vuelta · date la vuelta · gira a la derecha treinta grados | 180° · los grados que digas |
+| media vuelta · gira totalmente · gira 180 grados / gira a la derecha treinta grados | 180° / los grados que digas |
 | paso a la izquierda · de lado a la derecha | Q / E (paso lateral, sin girar) |
-| corre · caminar automático · sigue recto · todo recto | Bloq Num |
-| camina lento · despacio · anda despacio / a correr · corre rápido | Alterna andar/correr (solo si cambia algo) |
+| caminar automático · automático · sigue recto · todo recto | Bloq Num |
+| **correr**: corre · correr · camina rápido · más rápido — **andar**: anda · andar · camina · caminar · despacio | Modo correr / modo andar (pulsa la tecla solo si cambia algo) |
 | pon el foco · focus / vuelve al foco / quita el foco / asiste al foco | `/focus` · `/target focus` · `/clearfocus` · `/assist focus` |
 | asiste | Objetivo de tu objetivo |
 | para · alto · quieto | Suelta todo y corta el caminar automático |

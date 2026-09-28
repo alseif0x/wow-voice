@@ -25,8 +25,9 @@ class Parse(unittest.TestCase):
         cases = {
             "salta": ("jump", 1), "salta dos veces": ("jump", 2), "Brinca tres veces": ("jump", 3),
             "adelante": ("forward", 1), "atrás": ("back", 1), "paso a la izquierda": ("strafe_left", 1),
-            "gira a la derecha": ("turn_right", 1), "media vuelta": ("turn_left", 1),
-            "corre": ("autorun", 1), "caminar automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
+            "gira a la derecha": ("turn_right", 1), "media vuelta": ("turn_around", 1),
+            "corre": ("run", 1), "correr": ("run", 1), "camina rápido": ("run", 1), "andar": ("walk", 1), "camina": ("walk", 1), "caminar": ("walk", 1), "avanza": ("forward", 1),
+            "caminar automático": ("autorun", 1), "automático": ("autorun", 1), "sigue recto": ("autorun", 1), "todo recto": ("autorun", 1), "para": ("stop", 1),
             "siguiente objetivo": ("target", 1), "voz pausa": ("pause", 1), "voz activa": ("resume", 1),
             "camina lento": ("walk", 1), "a correr": ("run", 1),
             "pon el foco": ("focus", 1), "vuelve al foco": ("target_focus", 1), "quita el foco": ("clear_focus", 1), "focus aliado": ("focus_friend", 1), "asiste": ("assist", 1),
@@ -40,7 +41,9 @@ class Parse(unittest.TestCase):
     def test_turns_are_small_unless_said_otherwise(self):
         cases = {"izquierda": ("turn_left", 45), "a la derecha": ("turn_right", 45), "un poco a la izquierda": ("turn_left", 20),
                  "gira a la derecha": ("turn_right", 90), "mucho a la izquierda": ("turn_left", 135),
-                 "media vuelta": ("turn_left", 180), "gira a la derecha treinta grados": ("turn_right", 30),
+                 "media vuelta": ("turn_around", 180), "gira totalmente": ("turn_around", 180), "Gira 180 grados.": ("turn_around", 180),
+                 "180 grados": ("turn_around", 180), "gira a la derecha 30 grados": ("turn_right", 30),
+                 "gira a la derecha treinta grados": ("turn_right", 30),
                  "gira a la izquierda cuarenta y cinco grados": ("turn_left", 45)}
         for text, (kind, deg) in cases.items():
             o = C.parse(text, BUTTONS)
